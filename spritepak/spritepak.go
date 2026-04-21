@@ -490,6 +490,8 @@ func Build(jsonPath, outPath string) error {
 		}
 	}
 
+	// TODO, this can be a lot smarter, since some palettes might be subsets of others, but
+	// for now we just identify exact matches and reuse those.
 	paletteDataRefArray, paletteDataArray := reuseDataBlocks(paletteData)
 
 	if err := writePack(outPath, sprites, pixelData, alphaData, paletteDataRefArray, paletteDataArray); err != nil {
