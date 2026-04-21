@@ -53,16 +53,28 @@ const (
 // ===== Sprite table entry =====
 //
 
-type SpriteEntry struct {
+type spriteEntry struct {
 	Width         uint16
 	Height        uint16
 	Format        uint16
 	AlphaFormat   uint16
 	PixelSize     uint32
-	PixelOffset   uint64
 	AlphaSize     uint32
+	PixelOffset   uint64
 	AlphaOffset   uint64
 	PaletteOffset uint64
+}
+
+func (s spriteEntry) WriteBinary(w io.Writer) {
+	binary.Write(w, binary.LittleEndian, s.Width)
+	binary.Write(w, binary.LittleEndian, s.Height)
+	binary.Write(w, binary.LittleEndian, s.Format)
+	binary.Write(w, binary.LittleEndian, s.AlphaFormat)
+	binary.Write(w, binary.LittleEndian, s.PixelSize)
+	binary.Write(w, binary.LittleEndian, s.AlphaSize)
+	binary.Write(w, binary.LittleEndian, s.PixelOffset)
+	binary.Write(w, binary.LittleEndian, s.AlphaOffset)
+	binary.Write(w, binary.LittleEndian, s.PaletteOffset)
 }
 
 //
@@ -111,7 +123,7 @@ const (
 	ALPHA_A8 = 8
 )
 
-func AnalyzeAlpha(img image.Image, r Rect, alphaDisabled bool) uint16 {
+func analyzeAlpha(img image.Image, r Rect, alphaDisabled bool) uint16 {
 	if alphaDisabled {
 		return ALPHA_A0
 	}
@@ -149,13 +161,13 @@ func AnalyzeAlpha(img image.Image, r Rect, alphaDisabled bool) uint16 {
 // ===== Pixel encoders =====
 //
 
-type PaletteResult struct {
-	IndexedPixels []byte   // len = w*h
-	PaletteRGBA   []uint32 // 0xRRGGBBAA
-	PaletteRGB565 []uint16 // 0xRGB565
+type paletteResult struct {
+	indexedPixels []byte   // len = w*h
+	paletteRGBA   []uint32 // 0xRRGGBBAA
+	paletteRGB565 []uint16 // 0xRGB565
 }
 
-func BuildIndexed8Palette(img image.Image, r Rect) (*PaletteResult, bool) {
+func BuildIndexed8Palette(img image.Image, r Rect) (*paletteResult, bool) {
 
 	colorIndex := make(map[uint32]byte)
 	palette8888 := make([]uint32, 0, 256)
@@ -199,10 +211,10 @@ func BuildIndexed8Palette(img image.Image, r Rect) (*PaletteResult, bool) {
 		palette565[i] = uint16(r5<<11 | g6<<5 | b5)
 	}
 
-	return &PaletteResult{
-		IndexedPixels: indexed,
-		PaletteRGBA:   palette8888,
-		PaletteRGB565: palette565,
+	return &paletteResult{
+		indexedPixels: indexed,
+		paletteRGBA:   palette8888,
+		paletteRGB565: palette565,
 	}, true
 }
 
@@ -281,7 +293,7 @@ func encodeRGBA8888(img image.Image, r Rect) []byte {
 }
 
 // ===== Main writer =====
-func writePack(outPath string, sprites []SpriteEntry, pixelData [][]byte, alphaData [][]byte) error {
+func writePack(outPath string, sprites []spriteEntry, pixelData [][]byte, alphaData [][]byte) error {
 
 	f, err := os.Create(outPath)
 	if err != nil {
@@ -289,26 +301,43 @@ func writePack(outPath string, sprites []SpriteEntry, pixelData [][]byte, alphaD
 	}
 	defer f.Close()
 
+	// --- Helper for 8-byte alignment ---
+	paddingData := make([]byte, 8)
+	alignTo8 := func(offset int64) int64 {
+		padding := (8 - (offset % 8)) % 8
+		if padding > 0 {
+			f.Write(paddingData[:padding])
+		}
+		return offset + padding
+	}
+
 	// --- Header placeholder ---
 	binary.Write(f, binary.LittleEndian, uint64(0))            // sprite array offset
 	binary.Write(f, binary.LittleEndian, uint32(len(sprites))) // sprite count
-	binary.Write(f, binary.LittleEndian, uint32(0))            // padding
+	binary.Write(f, binary.LittleEndian, uint32(0))            // reserved
 
 	spriteArrayOffset, _ := f.Seek(0, io.SeekCurrent)
 
 	// --- Sprite table placeholder ---
 	for _, s := range sprites {
-		binary.Write(f, binary.LittleEndian, s)
+		s.WriteBinary(f)
 	}
+
+	var offset int64
 
 	// --- Data blocks ---
 	for i := range sprites {
-		offset, _ := f.Seek(0, io.SeekCurrent)
+
+		// --- Align to 8 bytes before writing pixel data ---
+		offset, _ = f.Seek(0, io.SeekCurrent)
+		offset = alignTo8(offset)
 		sprites[i].PixelOffset = uint64(offset)
 		f.Write(pixelData[i])
 
 		if sprites[i].AlphaSize != 0 {
-			offset, _ := f.Seek(0, io.SeekCurrent)
+			offset, _ = f.Seek(0, io.SeekCurrent)
+			// --- Align to 8 bytes before writing alpha data ---
+			offset = alignTo8(offset)
 			sprites[i].AlphaOffset = uint64(offset)
 			f.Write(alphaData[i])
 		}
@@ -321,7 +350,7 @@ func writePack(outPath string, sprites []SpriteEntry, pixelData [][]byte, alphaD
 	binary.Write(f, binary.LittleEndian, uint32(0))
 
 	for _, s := range sprites {
-		binary.Write(f, binary.LittleEndian, s)
+		s.WriteBinary(f)
 	}
 
 	return nil
@@ -338,7 +367,7 @@ func Build(jsonPath, outPath string) error {
 		panic(err)
 	}
 
-	var sprites []SpriteEntry
+	var sprites []spriteEntry
 	var pixelData [][]byte
 	var alphaData [][]byte
 
@@ -357,7 +386,7 @@ func Build(jsonPath, outPath string) error {
 			switch s.Format {
 			case "RGB565":
 				px, al := encodeRGB565A1(img, r)
-				sprites = append(sprites, SpriteEntry{
+				sprites = append(sprites, spriteEntry{
 					Width:       uint16(r.W),
 					Height:      uint16(r.H),
 					Format:      FMT_RGB565,
@@ -370,7 +399,7 @@ func Build(jsonPath, outPath string) error {
 
 			case "RGBA8888":
 				px := encodeRGBA8888(img, r)
-				sprites = append(sprites, SpriteEntry{
+				sprites = append(sprites, spriteEntry{
 					Width:       uint16(r.W),
 					Height:      uint16(r.H),
 					Format:      FMT_RGBA8888,
