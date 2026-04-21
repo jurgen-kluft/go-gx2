@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"go-gx2/sprite_pak"
+	sprite_pak "go-gx2/spritepak"
 	"os"
 	"path/filepath"
 )

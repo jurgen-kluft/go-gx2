@@ -83,10 +83,11 @@ func BuildGlyphTTF(face font.Face, r rune) (*BuiltGlyph, error) {
 	return &BuiltGlyph{
 		Rune:     r,
 		AdvanceX: int16(fixedToInt(advance)),
-		BearingX: int16(pb.Min.X),
-		BearingY: int16(pb.Max.Y),
-		Width:    uint16(w),
-		Height:   uint16(h),
+		BearingX: int16(fixedToInt(pb.Min.X)),
+		//BearingY: int16(fixedToInt(pb.Max.Y)),
+		BearingY: int16(fixedToInt(-pb.Min.Y)),
+		Width:    uint16(fixedToInt(w)),
+		Height:   uint16(fixedToInt(h)),
 		Bitmap:   bitmap,
 	}, nil
 }
