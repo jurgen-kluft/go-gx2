@@ -54,15 +54,15 @@ const (
 //
 
 type spriteEntry struct {
-	Width         uint16
-	Height        uint16
-	Format        uint16
-	AlphaFormat   uint16
-	PixelSize     uint32
-	AlphaSize     uint32
-	PixelOffset   uint64
-	AlphaOffset   uint64
-	PaletteOffset uint64
+	Width             uint16
+	Height            uint16
+	Format            uint16
+	AlphaFormat       uint16
+	PixelDataSize     uint32
+	AlphaDataSize     uint32
+	PixelDataOffset   uint64
+	AlphaDataOffset   uint64
+	PaletteDataOffset uint64
 }
 
 func (s spriteEntry) WriteBinary(w io.Writer) {
@@ -70,11 +70,11 @@ func (s spriteEntry) WriteBinary(w io.Writer) {
 	binary.Write(w, binary.LittleEndian, s.Height)
 	binary.Write(w, binary.LittleEndian, s.Format)
 	binary.Write(w, binary.LittleEndian, s.AlphaFormat)
-	binary.Write(w, binary.LittleEndian, s.PixelSize)
-	binary.Write(w, binary.LittleEndian, s.AlphaSize)
-	binary.Write(w, binary.LittleEndian, s.PixelOffset)
-	binary.Write(w, binary.LittleEndian, s.AlphaOffset)
-	binary.Write(w, binary.LittleEndian, s.PaletteOffset)
+	binary.Write(w, binary.LittleEndian, s.PixelDataSize)
+	binary.Write(w, binary.LittleEndian, s.AlphaDataSize)
+	binary.Write(w, binary.LittleEndian, s.PixelDataOffset)
+	binary.Write(w, binary.LittleEndian, s.AlphaDataOffset)
+	binary.Write(w, binary.LittleEndian, s.PaletteDataOffset)
 }
 
 //
@@ -331,14 +331,14 @@ func writePack(outPath string, sprites []spriteEntry, pixelData [][]byte, alphaD
 		// --- Align to 8 bytes before writing pixel data ---
 		offset, _ = f.Seek(0, io.SeekCurrent)
 		offset = alignTo8(offset)
-		sprites[i].PixelOffset = uint64(offset)
+		sprites[i].PixelDataOffset = uint64(offset)
 		f.Write(pixelData[i])
 
-		if sprites[i].AlphaSize != 0 {
+		if sprites[i].AlphaDataSize != 0 {
 			offset, _ = f.Seek(0, io.SeekCurrent)
 			// --- Align to 8 bytes before writing alpha data ---
 			offset = alignTo8(offset)
-			sprites[i].AlphaOffset = uint64(offset)
+			sprites[i].AlphaDataOffset = uint64(offset)
 			f.Write(alphaData[i])
 		}
 	}
@@ -359,12 +359,12 @@ func writePack(outPath string, sprites []spriteEntry, pixelData [][]byte, alphaD
 func Build(jsonPath, outPath string) error {
 	jdata, err := os.ReadFile(jsonPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	var pack PackDesc
 	if err := json.Unmarshal(jdata, &pack); err != nil {
-		panic(err)
+		return err
 	}
 
 	var sprites []spriteEntry
@@ -374,7 +374,7 @@ func Build(jsonPath, outPath string) error {
 	for _, f := range pack.Files {
 		img, err := loadImage(f.File)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		for _, s := range f.Sprites {
@@ -387,12 +387,12 @@ func Build(jsonPath, outPath string) error {
 			case "RGB565":
 				px, al := encodeRGB565A1(img, r)
 				sprites = append(sprites, spriteEntry{
-					Width:       uint16(r.W),
-					Height:      uint16(r.H),
-					Format:      FMT_RGB565,
-					AlphaFormat: ALPHA_A1,
-					PixelSize:   uint32(len(px)),
-					AlphaSize:   uint32(len(al)),
+					Width:         uint16(r.W),
+					Height:        uint16(r.H),
+					Format:        FMT_RGB565,
+					AlphaFormat:   ALPHA_A1,
+					PixelDataSize: uint32(len(px)),
+					AlphaDataSize: uint32(len(al)),
 				})
 				pixelData = append(pixelData, px)
 				alphaData = append(alphaData, al)
@@ -400,26 +400,25 @@ func Build(jsonPath, outPath string) error {
 			case "RGBA8888":
 				px := encodeRGBA8888(img, r)
 				sprites = append(sprites, spriteEntry{
-					Width:       uint16(r.W),
-					Height:      uint16(r.H),
-					Format:      FMT_RGBA8888,
-					AlphaFormat: ALPHA_A0,
-					PixelSize:   uint32(len(px)),
+					Width:         uint16(r.W),
+					Height:        uint16(r.H),
+					Format:        FMT_RGBA8888,
+					AlphaFormat:   ALPHA_A0,
+					PixelDataSize: uint32(len(px)),
 				})
 				pixelData = append(pixelData, px)
 				alphaData = append(alphaData, nil)
 
 			default:
-				panic("unsupported format: " + s.Format)
+				return fmt.Errorf("unsupported format: %s", s.Format)
 			}
 		}
 	}
 
 	if err := writePack(outPath, sprites, pixelData, alphaData); err != nil {
-		panic(err)
+		return err
 	}
 
 	fmt.Printf("Wrote %d sprites to %s\n", len(sprites), outPath)
-
 	return nil
 }

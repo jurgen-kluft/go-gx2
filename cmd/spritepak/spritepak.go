@@ -16,6 +16,10 @@ func main() {
 	jsonPath := os.Args[1]
 	outPath := os.Args[2]
 
-	sprite_pak.Build(jsonPath, outPath)
+	if err := sprite_pak.Build(jsonPath, outPath); err != nil {
+		fmt.Printf("Error building sprite pak: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Printf("Built sprite pak: %s\n", outPath)
 }

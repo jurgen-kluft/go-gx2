@@ -40,14 +40,15 @@ Tool takes a .json file as input that describes the images to be included in the
 ## Sprite Pack File Format
 - u64 offset to sprite array
 - u32 image count
+- u32 reserved (for alignment)
 - sprite array[]
     - u16 width
     - u16 height
     - u16 format (e.g. RGBA5551, RGBA8888, 8-Bit color palette, 1-Bit, etc..)
     - u16 alpha format (e.g. A8, A4, A1, A0 etc..) (for formats with separate alpha data)
     - u32 pixel data size
-    - u64 pixel data offset in file
     - u32 alpha data size
+    - u64 pixel data offset in file
     - u64 alpha data offset in file (for formats with separate alpha data)
     - u64 color palette offset in file (for paletted formats)
 - Data
