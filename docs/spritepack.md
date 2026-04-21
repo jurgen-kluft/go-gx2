@@ -8,24 +8,32 @@ Tool takes a .json file as input that describes the images to be included in the
 {
   "files": [
     {
-      "file": "sprite1.png",
+      "file": "sprite_map_icons.png",
       "sprites": [
          {
            "name": "sprite1",
-           "format": "RGB565",
-           "alpha": "A1"
+           "format": "RGB565A1"
          }
       ]
     },
     {
-      "file": "sprite2.tga",
+      "file": "sprite_map_buttons.tga",
       "sprites": [
          {
-           "name":"sprite2",
-           "format": "RGB565",
-           "alpha": "A1",
+           "name":"title",
+           "format": "I8A1",
            "rect": {
                "x": 0,
+               "y": 0,
+               "w": 64,
+               "h": 64
+            }
+         },
+         {
+           "name":"button1",
+           "format": "RGBA8888",
+           "rect": {
+               "x": 64,
                "y": 0,
                "w": 64,
                "h": 64
@@ -44,8 +52,8 @@ Tool takes a .json file as input that describes the images to be included in the
 - sprite array[]
     - u16 width
     - u16 height
-    - u16 format (e.g. RGBA5551, RGBA8888, 8-Bit color palette, 1-Bit, etc..)
-    - u16 alpha format (e.g. A8, A4, A1, A0 etc..) (for formats with separate alpha data)
+    - u16 format (e.g. RGBA565, RGBA565A1, RGBA8888, I8, I8A1, etc.)
+    - u16 reserved (for alignment)
     - u32 pixel data size
     - u32 alpha data size
     - u64 pixel data offset in file

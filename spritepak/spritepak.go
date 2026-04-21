@@ -29,7 +29,6 @@ type FileDesc struct {
 type SpriteDesc struct {
 	Name   string `json:"name"`
 	Format string `json:"format"`
-	Alpha  string `json:"alpha"`
 	Rect   *Rect  `json:"rect,omitempty"`
 }
 
@@ -40,14 +39,49 @@ type Rect struct {
 	H int `json:"h"`
 }
 
-//
 // ===== Binary enums =====
-//
+const (
+	FMT_ALPHA_A0 = 0
+	FMT_ALPHA_A1 = 1
+	FMT_ALPHA_A4 = 4
+	FMT_ALPHA_A8 = 8
+)
 
 const (
-	FMT_RGB565   = 1
-	FMT_RGBA8888 = 2
+	FMT_RGB565   = 0x0100
+	FMT_RGB565A1 = 0x0100 | FMT_ALPHA_A1
+	FMT_RGB565A4 = 0x0100 | FMT_ALPHA_A4
+	FMT_RGB565A8 = 0x0100 | FMT_ALPHA_A8
+	FMT_RGBA8888 = 0x0200
+	FMT_I8       = 0x0300
+	FMT_I8A1     = 0x0300 | FMT_ALPHA_A1
+	FMT_I8A4     = 0x0300 | FMT_ALPHA_A4
+	FMT_I8A8     = 0x0300 | FMT_ALPHA_A8
 )
+
+func formatStringToEnum(s string) (uint16, error) {
+	switch s {
+	case "RGB565":
+		return FMT_RGB565, nil
+	case "RGB565A1":
+		return FMT_RGB565A1, nil
+	case "RGB565A4":
+		return FMT_RGB565A4, nil
+	case "RGB565A8":
+		return FMT_RGB565A8, nil
+	case "RGBA8888":
+		return FMT_RGBA8888, nil
+	case "I8":
+		return FMT_I8, nil
+	case "I8A1":
+		return FMT_I8A1, nil
+	case "I8A4":
+		return FMT_I8A4, nil
+	case "I8A8":
+		return FMT_I8A8, nil
+	}
+	return 0, fmt.Errorf("unsupported format: %s", s)
+}
 
 //
 // ===== Sprite table entry =====
@@ -57,7 +91,7 @@ type spriteEntry struct {
 	Width             uint16
 	Height            uint16
 	Format            uint16
-	AlphaFormat       uint16
+	Reserved          uint16
 	PixelDataSize     uint32
 	AlphaDataSize     uint32
 	PixelDataOffset   uint64
@@ -69,7 +103,7 @@ func (s spriteEntry) WriteBinary(w io.Writer) {
 	binary.Write(w, binary.LittleEndian, s.Width)
 	binary.Write(w, binary.LittleEndian, s.Height)
 	binary.Write(w, binary.LittleEndian, s.Format)
-	binary.Write(w, binary.LittleEndian, s.AlphaFormat)
+	binary.Write(w, binary.LittleEndian, s.Reserved)
 	binary.Write(w, binary.LittleEndian, s.PixelDataSize)
 	binary.Write(w, binary.LittleEndian, s.AlphaDataSize)
 	binary.Write(w, binary.LittleEndian, s.PixelDataOffset)
@@ -115,17 +149,9 @@ func fullRect(img image.Image) Rect {
 	}
 }
 
-// ==== Alpha utilities =====
-const (
-	ALPHA_A0 = 0
-	ALPHA_A1 = 1
-	ALPHA_A4 = 4
-	ALPHA_A8 = 8
-)
-
 func analyzeAlpha(img image.Image, r Rect, alphaDisabled bool) uint16 {
 	if alphaDisabled {
-		return ALPHA_A0
+		return FMT_ALPHA_A0
 	}
 
 	alphas := make(map[uint8]bool, 256)
@@ -138,23 +164,23 @@ func analyzeAlpha(img image.Image, r Rect, alphaDisabled bool) uint16 {
 	}
 
 	if len(alphas) == 0 {
-		return ALPHA_A0
+		return FMT_ALPHA_A0
 	}
 
 	if len(alphas) == 1 {
 		for a := range alphas {
 			if a == 0xFF {
-				return ALPHA_A1
+				return FMT_ALPHA_A1
 			}
 		}
-		return ALPHA_A0
+		return FMT_ALPHA_A0
 	}
 
 	if len(alphas) <= 16 {
-		return ALPHA_A4
+		return FMT_ALPHA_A4
 	}
 
-	return ALPHA_A8
+	return FMT_ALPHA_A8
 }
 
 //
@@ -167,7 +193,7 @@ type paletteResult struct {
 	paletteRGB565 []uint16 // 0xRGB565
 }
 
-func BuildIndexed8Palette(img image.Image, r Rect) (*paletteResult, bool) {
+func buildIndexed8Palette(img image.Image, r Rect) (*paletteResult, bool) {
 
 	colorIndex := make(map[uint32]byte)
 	palette8888 := make([]uint32, 0, 256)
@@ -235,6 +261,25 @@ func encodeRGB565A0(img image.Image, r Rect) ([]byte, []byte) {
 		}
 	}
 	return pixels, []byte{}
+}
+
+// RGB565
+func encodeRGB565(img image.Image, r Rect) []byte {
+	pixels := make([]byte, 0, r.W*r.H*2)
+
+	for y := 0; y < r.H; y++ {
+		for x := 0; x < r.W; x++ {
+			cr, cg, cb, _ := img.At(r.X+x, r.Y+y).RGBA()
+
+			r5 := (cr >> 11) & 0x1F
+			g6 := (cg >> 10) & 0x3F
+			b5 := (cb >> 11) & 0x1F
+
+			v := uint16(r5<<11 | g6<<5 | b5)
+			pixels = append(pixels, byte(v), byte(v>>8))
+		}
+	}
+	return pixels
 }
 
 // RGB565 + A1 (separate alpha bitstream)
@@ -316,9 +361,8 @@ func writePack(outPath string, sprites []spriteEntry, pixelData [][]byte, alphaD
 	binary.Write(f, binary.LittleEndian, uint32(len(sprites))) // sprite count
 	binary.Write(f, binary.LittleEndian, uint32(0))            // reserved
 
-	spriteArrayOffset, _ := f.Seek(0, io.SeekCurrent)
-
 	// --- Sprite table placeholder ---
+	spriteArrayOffset, _ := f.Seek(0, io.SeekCurrent)
 	for _, s := range sprites {
 		s.WriteBinary(f)
 	}
@@ -383,35 +427,61 @@ func Build(jsonPath, outPath string) error {
 				r = *s.Rect
 			}
 
-			switch s.Format {
-			case "RGB565":
-				px, al := encodeRGB565A1(img, r)
-				sprites = append(sprites, spriteEntry{
-					Width:         uint16(r.W),
-					Height:        uint16(r.H),
-					Format:        FMT_RGB565,
-					AlphaFormat:   ALPHA_A1,
-					PixelDataSize: uint32(len(px)),
-					AlphaDataSize: uint32(len(al)),
-				})
-				pixelData = append(pixelData, px)
-				alphaData = append(alphaData, al)
+			formatEnum, err := formatStringToEnum(s.Format)
+			if err != nil {
+				return err
+			}
 
-			case "RGBA8888":
-				px := encodeRGBA8888(img, r)
-				sprites = append(sprites, spriteEntry{
-					Width:         uint16(r.W),
-					Height:        uint16(r.H),
-					Format:        FMT_RGBA8888,
-					AlphaFormat:   ALPHA_A0,
-					PixelDataSize: uint32(len(px)),
-				})
-				pixelData = append(pixelData, px)
-				alphaData = append(alphaData, nil)
+			var px []byte
+			var al []byte
 
+			px = nil
+			al = nil
+
+			switch formatEnum {
+			case FMT_RGB565:
+				px = encodeRGB565(img, r)
+			case FMT_RGB565A1:
+				px, al = encodeRGB565A1(img, r)
+			case FMT_RGB565A4:
+				fmt.Printf("Warning: format %s not implemented yet, falling back to RGBA8888\n", s.Format)
+				px = encodeRGBA8888(img, r)
+				formatEnum = FMT_RGBA8888
+			case FMT_RGB565A8:
+				fmt.Printf("Warning: format %s not implemented yet, falling back to RGBA8888\n", s.Format)
+				px = encodeRGBA8888(img, r)
+				formatEnum = FMT_RGBA8888
+			case FMT_RGBA8888:
+				px = encodeRGBA8888(img, r)
+			case FMT_I8:
+				fmt.Printf("Warning: format %s not implemented yet, falling back to RGBA8888\n", s.Format)
+				px = encodeRGBA8888(img, r)
+				formatEnum = FMT_RGBA8888
+			case FMT_I8A1:
+				fmt.Printf("Warning: format %s not implemented yet, falling back to RGBA8888\n", s.Format)
+				px = encodeRGBA8888(img, r)
+				formatEnum = FMT_RGBA8888
+			case FMT_I8A4:
+				fmt.Printf("Warning: format %s not implemented yet, falling back to RGBA8888\n", s.Format)
+				px = encodeRGBA8888(img, r)
+				formatEnum = FMT_RGBA8888
+			case FMT_I8A8:
+				fmt.Printf("Warning: format %s not implemented yet, falling back to RGBA8888\n", s.Format)
+				px = encodeRGBA8888(img, r)
+				formatEnum = FMT_RGBA8888
 			default:
 				return fmt.Errorf("unsupported format: %s", s.Format)
 			}
+
+			sprites = append(sprites, spriteEntry{
+				Width:         uint16(r.W),
+				Height:        uint16(r.H),
+				Format:        formatEnum,
+				PixelDataSize: uint32(len(px)),
+				AlphaDataSize: uint32(len(al)),
+			})
+			pixelData = append(pixelData, px)
+			alphaData = append(alphaData, al)
 		}
 	}
 
