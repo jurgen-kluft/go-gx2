@@ -1,4 +1,4 @@
-package sprite_pak
+package spritepak
 
 import (
 	"bufio"
@@ -10,6 +10,7 @@ import (
 	_ "image/png"
 	"io"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -39,7 +40,7 @@ type Rect struct {
 	H int `json:"h"`
 }
 
-// ===== Binary enums =====
+// ===== Alpha Format =====
 const (
 	FMT_ALPHA_A0 = 0
 	FMT_ALPHA_A1 = 1
@@ -47,16 +48,14 @@ const (
 	FMT_ALPHA_A8 = 8
 )
 
+// ===== Color Format =====
 const (
-	FMT_RGB565   = 0x0100
-	FMT_RGB565A1 = 0x0100 | FMT_ALPHA_A1
-	FMT_RGB565A4 = 0x0100 | FMT_ALPHA_A4
-	FMT_RGB565A8 = 0x0100 | FMT_ALPHA_A8
-	FMT_RGBA8888 = 0x0200
-	FMT_I8       = 0x0300
-	FMT_I8A1     = 0x0300 | FMT_ALPHA_A1
-	FMT_I8A4     = 0x0300 | FMT_ALPHA_A4
-	FMT_I8A8     = 0x0300 | FMT_ALPHA_A8
+	FMT_RGB565   = 0x0100                // RGB565 (16-bit) with no alpha
+	FMT_RGB565A1 = 0x0100 | FMT_ALPHA_A1 // RGB565 (16-bit) + separate alpha map (1-bit)
+	FMT_RGB565A4 = 0x0100 | FMT_ALPHA_A4 // RGB565 (16-bit) + separate alpha map (4-bit)
+	FMT_RGB565A8 = 0x0100 | FMT_ALPHA_A8 // RGB565 (16-bit) + separate alpha map (8-bit)
+	FMT_RGBA8888 = 0x0200                // RGBA8888 (32-bit)
+	FMT_I8       = 0x0300                // Indexed 8-bit (with RGBA palette)
 )
 
 func formatStringToEnum(s string) (uint16, error) {
@@ -73,20 +72,11 @@ func formatStringToEnum(s string) (uint16, error) {
 		return FMT_RGBA8888, nil
 	case "I8":
 		return FMT_I8, nil
-	case "I8A1":
-		return FMT_I8A1, nil
-	case "I8A4":
-		return FMT_I8A4, nil
-	case "I8A8":
-		return FMT_I8A8, nil
 	}
 	return 0, fmt.Errorf("unsupported format: %s", s)
 }
 
-//
 // ===== Sprite table entry =====
-//
-
 type spriteEntry struct {
 	Width             uint16
 	Height            uint16
@@ -193,55 +183,62 @@ type paletteResult struct {
 	paletteRGB565 []uint16 // 0xRGB565
 }
 
-func buildIndexed8Palette(img image.Image, r Rect) (*paletteResult, bool) {
+func buildIndexed8Palette(img image.Image, r Rect) (pixels []byte, palette []uint32, ok bool) {
 
-	colorIndex := make(map[uint32]byte)
-	palette8888 := make([]uint32, 0, 256)
-	indexed := make([]byte, r.W*r.H)
-
-	p := 0
+	// first build the color index map
+	colorIndex := make(map[uint32]int, 256)
 	for y := 0; y < r.H; y++ {
 		for x := 0; x < r.W; x++ {
 			cr, cg, cb, ca := img.At(r.X+x, r.Y+y).RGBA()
-
-			// canonical RGBA8888
-			c := uint32(cr>>8)<<24 |
-				uint32(cg>>8)<<16 |
-				uint32(cb>>8)<<8 |
-				uint32(ca>>8)
-
-			idx, ok := colorIndex[c]
-			if !ok {
-				if len(palette8888) >= 256 {
-					return nil, false
-				}
-				idx = byte(len(palette8888))
-				colorIndex[c] = idx
-				palette8888 = append(palette8888, c)
-			}
-			indexed[p] = idx
-			p++
+			c := uint32(cr>>8)<<24 | uint32(cg>>8)<<16 | uint32(cb>>8)<<8 | uint32(ca>>8)
+			colorIndex[c] = -1
 		}
 	}
 
-	palette565 := make([]uint16, len(palette8888))
-	for i, c := range palette8888 {
-		r := (c >> 24) & 0xFF
-		g := (c >> 16) & 0xFF
-		b := (c >> 8) & 0xFF
-
-		r5 := (r >> 3) & 0x1F
-		g6 := (g >> 2) & 0x3F
-		b5 := (b >> 3) & 0x1F
-
-		palette565[i] = uint16(r5<<11 | g6<<5 | b5)
+	if len(colorIndex) > 256 {
+		return nil, nil, false
 	}
 
-	return &paletteResult{
-		indexedPixels: indexed,
-		paletteRGBA:   palette8888,
-		paletteRGB565: palette565,
-	}, true
+	// build palette from color index keys
+	palette = make([]uint32, 0, 256)
+	for c := range colorIndex {
+		palette = append(palette, c)
+	}
+
+	// sort the palette to ensure consistent ordering
+	slices.Sort(palette)
+
+	// hand out indices
+	for i, c := range palette {
+		colorIndex[c] = i
+	}
+
+	// pad out the palette to 256 colors
+	for len(palette) < 256 {
+		palette = append(palette, 0) // pad with transparent black if less than 256 colors
+	}
+
+	// build indexed pixel data
+	pixels = make([]byte, r.W*r.H)
+	for y := 0; y < r.H; y++ {
+		for x := 0; x < r.W; x++ {
+			cr, cg, cb, ca := img.At(r.X+x, r.Y+y).RGBA()
+			c := uint32(cr>>8)<<24 | uint32(cg>>8)<<16 | uint32(cb>>8)<<8 | uint32(ca>>8)
+			idx := colorIndex[c]
+			pixels[y*r.W+x] = byte(idx)
+		}
+	}
+
+	return pixels, palette, true
+}
+
+// Indexed 8-bit (with palette)
+func encodeI8(img image.Image, r Rect) (pixeldata []byte, palette []uint32) {
+	pixels, paletteRGBA, ok := buildIndexed8Palette(img, r)
+	if !ok {
+		return nil, nil
+	}
+	return pixels, paletteRGBA
 }
 
 // RGB565 + A0 (no separate alpha bitstream)
@@ -338,7 +335,7 @@ func encodeRGBA8888(img image.Image, r Rect) []byte {
 }
 
 // ===== Main writer =====
-func writePack(outPath string, sprites []spriteEntry, pixelData [][]byte, alphaData [][]byte) error {
+func writePack(outPath string, sprites []spriteEntry, pixelData [][]byte, alphaData [][]byte, paletteRefArray []int, paletteDataArray [][]uint32) error {
 
 	f, err := os.Create(outPath)
 	if err != nil {
@@ -369,6 +366,17 @@ func writePack(outPath string, sprites []spriteEntry, pixelData [][]byte, alphaD
 
 	var offset int64
 
+	// --- Palette blocks ---
+	paletteDataOffsetArray := make([]int64, len(paletteRefArray))
+	for i, p := range paletteDataArray {
+		palette := p
+		offset, _ = f.Seek(0, io.SeekCurrent)
+		paletteDataOffsetArray[i] = offset
+		for _, c := range palette {
+			binary.Write(f, binary.LittleEndian, c)
+		}
+	}
+
 	// --- Data blocks ---
 	for i := range sprites {
 
@@ -378,12 +386,19 @@ func writePack(outPath string, sprites []spriteEntry, pixelData [][]byte, alphaD
 		sprites[i].PixelDataOffset = uint64(offset)
 		f.Write(pixelData[i])
 
-		if sprites[i].AlphaDataSize != 0 {
+		if alphaData[i] != nil {
 			offset, _ = f.Seek(0, io.SeekCurrent)
 			// --- Align to 8 bytes before writing alpha data ---
 			offset = alignTo8(offset)
 			sprites[i].AlphaDataOffset = uint64(offset)
 			f.Write(alphaData[i])
+		}
+
+		if paletteRefArray[i] >= 0 {
+			offset = paletteDataOffsetArray[paletteRefArray[i]]
+			sprites[i].PaletteDataOffset = uint64(offset)
+		} else {
+			sprites[i].PaletteDataOffset = 0
 		}
 	}
 
@@ -414,6 +429,7 @@ func Build(jsonPath, outPath string) error {
 	var sprites []spriteEntry
 	var pixelData [][]byte
 	var alphaData [][]byte
+	var paletteData [][]uint32
 
 	for _, f := range pack.Files {
 		img, err := loadImage(f.File)
@@ -434,9 +450,11 @@ func Build(jsonPath, outPath string) error {
 
 			var px []byte
 			var al []byte
+			var pd []uint32
 
 			px = nil
 			al = nil
+			pd = nil
 
 			switch formatEnum {
 			case FMT_RGB565:
@@ -454,21 +472,7 @@ func Build(jsonPath, outPath string) error {
 			case FMT_RGBA8888:
 				px = encodeRGBA8888(img, r)
 			case FMT_I8:
-				fmt.Printf("Warning: format %s not implemented yet, falling back to RGBA8888\n", s.Format)
-				px = encodeRGBA8888(img, r)
-				formatEnum = FMT_RGBA8888
-			case FMT_I8A1:
-				fmt.Printf("Warning: format %s not implemented yet, falling back to RGBA8888\n", s.Format)
-				px = encodeRGBA8888(img, r)
-				formatEnum = FMT_RGBA8888
-			case FMT_I8A4:
-				fmt.Printf("Warning: format %s not implemented yet, falling back to RGBA8888\n", s.Format)
-				px = encodeRGBA8888(img, r)
-				formatEnum = FMT_RGBA8888
-			case FMT_I8A8:
-				fmt.Printf("Warning: format %s not implemented yet, falling back to RGBA8888\n", s.Format)
-				px = encodeRGBA8888(img, r)
-				formatEnum = FMT_RGBA8888
+				px, pd = encodeI8(img, r)
 			default:
 				return fmt.Errorf("unsupported format: %s", s.Format)
 			}
@@ -482,10 +486,13 @@ func Build(jsonPath, outPath string) error {
 			})
 			pixelData = append(pixelData, px)
 			alphaData = append(alphaData, al)
+			paletteData = append(paletteData, pd)
 		}
 	}
 
-	if err := writePack(outPath, sprites, pixelData, alphaData); err != nil {
+	paletteDataRefArray, paletteDataArray := reuseDataBlocks(paletteData)
+
+	if err := writePack(outPath, sprites, pixelData, alphaData, paletteDataRefArray, paletteDataArray); err != nil {
 		return err
 	}
 
