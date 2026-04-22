@@ -89,11 +89,18 @@ func (g *fileGlyph) writeTo(buf *bytes.Buffer) {
 	binary.Write(buf, binary.LittleEndian, g.Height)
 }
 
+func alignBytesBufferTo8(buf *bytes.Buffer) {
+	padding := (8 - (buf.Len() % 8)) % 8
+	if padding > 0 {
+		buf.Write(make([]byte, padding))
+	}
+}
+
 func writeFontPack(fonts []builtFont) ([]byte, error) {
 	var buf bytes.Buffer
 
 	ctx := fileFontContext{
-		FontsOff:  uint64(binary.Size(fileFontContext{})),
+		FontsOff:  uint64(0), // Placeholder, will be filled in later
 		FontCount: uint32(len(fonts)),
 		Reserved:  uint32(0),
 	}

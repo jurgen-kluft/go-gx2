@@ -13,7 +13,7 @@ type builtFont struct {
 	Name          string
 	GlyphsOffset  int64
 	BitmapsOffset int64
-	Glyphs        []BuiltGlyph
+	Glyphs        []builtGlyph
 	CharMap       [256]uint8
 	Ascent        int16
 	Descent       int16
@@ -21,18 +21,28 @@ type builtFont struct {
 	Reserved      int16
 }
 
+type builtGlyph struct {
+	Rune     rune
+	AdvanceX int16
+	BearingX int16
+	BearingY int16
+	Width    uint16
+	Height   uint16
+	Bitmap   []byte
+}
+
 //
 // TTF builder
 //
 
-func buildTTFFont(fontPath string, options Options, name string, parsedChars [256]rune) (*builtFont, error) {
+func buildTTFFont(fontPath string, ops options, name string, parsedChars [256]rune) (*builtFont, error) {
 
 	data, err := os.ReadFile(fontPath)
 	if err != nil {
 		return nil, err
 	}
 
-	face, err := NewTTFFace(options, data)
+	face, err := newTTFFace(ops, data)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +57,7 @@ func buildTTFFont(fontPath string, options Options, name string, parsedChars [25
 	}
 
 	font.Ascent, font.Descent, font.LineGap =
-		ExtractFontMetrics(face)
+		extractFontMetrics(face)
 
 	for ascii, r := range parsedChars {
 		if r == 0 {
@@ -55,7 +65,7 @@ func buildTTFFont(fontPath string, options Options, name string, parsedChars [25
 			continue
 		}
 
-		glyph, err := BuildGlyphTTF(face, r)
+		glyph, err := buildGlyphTTF(face, r)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +116,7 @@ func buildBDFFont(fontPath string, name string, parsedChars [256]rune) (*builtFo
 			continue
 		}
 
-		bg := BuildGlyphBDF(g)
+		bg := buildGlyphBDF(g)
 		index := uint8(len(font.Glyphs))
 		font.CharMap[ascii] = index
 		font.Glyphs = append(font.Glyphs, bg)
@@ -119,7 +129,7 @@ func buildBDFFont(fontPath string, name string, parsedChars [256]rune) (*builtFo
 // Public API
 //
 
-func BuildFontPak(cfg *Config, outFilepath string) error {
+func BuildFontPak(cfg *config, outFilepath string) error {
 	var out []builtFont
 
 	// build the charmap
@@ -132,7 +142,7 @@ func BuildFontPak(cfg *Config, outFilepath string) error {
 			var built *builtFont
 			var err error
 
-			options := Options{
+			options := options{
 				FontSize: f.Size,
 				DPI:      f.Dpi,
 			}

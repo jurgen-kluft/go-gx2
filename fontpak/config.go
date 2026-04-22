@@ -6,38 +6,38 @@ import (
 	"os"
 )
 
-type Options struct {
+type options struct {
 	FontSize int // FontSize is the size of the font in points (pt).
 	DPI      int // DPI is the dots per inch for rendering the font. Higher DPI means higher quality but larger bitmaps.
 }
 
-type Config struct {
-	Files []*FontFile `json:"files"`
+type config struct {
+	Files []*fontFile `json:"files"`
 }
 
-type FontFile struct {
+type fontFile struct {
 	File  string        `json:"file"`
-	Fonts []*FontConfig `json:"fonts"`
+	Fonts []*fontConfig `json:"fonts"`
 }
 
-type FontConfig struct {
+type fontConfig struct {
 	Name    string       `json:"name"`
 	Dpi     int          `json:"dpi"`
 	Size    int          `json:"size"`
-	CharMap []CharConfig `json:"chars"`
+	CharMap []charConfig `json:"chars"`
 }
 
-type CharConfig struct {
+type charConfig struct {
 	ASCII string `json:"ascii"`
 	Glyph string `json:"glyph"`
 }
 
-func LoadConfig(path string) (*Config, error) {
+func LoadConfig(path string) (*config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var cfg Config
+	var cfg config
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}

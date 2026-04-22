@@ -8,34 +8,24 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-type BuiltGlyph struct {
-	Rune     rune
-	AdvanceX int16
-	BearingX int16
-	BearingY int16
-	Width    uint16
-	Height   uint16
-	Bitmap   []byte
-}
-
 func fixedToInt(v fixed.Int26_6) int {
 	return int(v.Round())
 }
 
-func NewTTFFace(options Options, data []byte) (font.Face, error) {
+func newTTFFace(opts options, data []byte) (font.Face, error) {
 	f, err := opentype.Parse(data)
 	if err != nil {
 		return nil, err
 	}
 
 	return opentype.NewFace(f, &opentype.FaceOptions{
-		Size:    float64(options.FontSize),
-		DPI:     float64(options.DPI),
+		Size:    float64(opts.FontSize),
+		DPI:     float64(opts.DPI),
 		Hinting: font.HintingFull,
 	})
 }
 
-func ExtractFontMetrics(face font.Face) (ascent, descent, lineGap int16) {
+func extractFontMetrics(face font.Face) (ascent, descent, lineGap int16) {
 	m := face.Metrics()
 	a := fixedToInt(m.Ascent)
 	d := fixedToInt(m.Descent)
@@ -43,12 +33,7 @@ func ExtractFontMetrics(face font.Face) (ascent, descent, lineGap int16) {
 	return int16(a), int16(-d), int16(h - (a + d))
 }
 
-func BuildGlyphTTF(face font.Face, r rune) (*BuiltGlyph, error) {
-	// advance, ok := face.GlyphAdvance(r)
-	// if !ok {
-	// 	return nil, nil
-	// }
-
+func buildGlyphTTF(face font.Face, r rune) (*builtGlyph, error) {
 	pb, advance, ok := face.GlyphBounds(r)
 	if !ok {
 		return nil, nil
@@ -58,7 +43,7 @@ func BuildGlyphTTF(face font.Face, r rune) (*BuiltGlyph, error) {
 	h := pb.Max.Y - pb.Min.Y
 
 	if w <= 0 || h <= 0 {
-		return &BuiltGlyph{
+		return &builtGlyph{
 			Rune:     r,
 			AdvanceX: int16(fixedToInt(advance)),
 		}, nil
@@ -80,11 +65,10 @@ func BuildGlyphTTF(face font.Face, r rune) (*BuiltGlyph, error) {
 	bitmap := make([]byte, len(img.Pix))
 	copy(bitmap, img.Pix)
 
-	return &BuiltGlyph{
+	return &builtGlyph{
 		Rune:     r,
 		AdvanceX: int16(fixedToInt(advance)),
 		BearingX: int16(fixedToInt(pb.Min.X)),
-		//BearingY: int16(fixedToInt(pb.Max.Y)),
 		BearingY: int16(fixedToInt(-pb.Min.Y)),
 		Width:    uint16(fixedToInt(w)),
 		Height:   uint16(fixedToInt(h)),

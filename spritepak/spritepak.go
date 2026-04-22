@@ -18,22 +18,22 @@ import (
 // ===== JSON structures =====
 //
 
-type PackDesc struct {
-	Files []FileDesc `json:"files"`
+type packDesc struct {
+	Files []fileDesc `json:"files"`
 }
 
-type FileDesc struct {
+type fileDesc struct {
 	File    string       `json:"file"`
-	Sprites []SpriteDesc `json:"sprites"`
+	Sprites []spriteDesc `json:"sprites"`
 }
 
-type SpriteDesc struct {
+type spriteDesc struct {
 	Name   string `json:"name"`
 	Format string `json:"format"`
-	Rect   *Rect  `json:"rect,omitempty"`
+	rect   *rect  `json:"rect,omitempty"`
 }
 
-type Rect struct {
+type rect struct {
 	X int `json:"x"`
 	Y int `json:"y"`
 	W int `json:"w"`
@@ -89,7 +89,7 @@ type spriteEntry struct {
 	PaletteDataOffset uint64
 }
 
-func (s spriteEntry) WriteBinary(w io.Writer) {
+func (s spriteEntry) writeBinary(w io.Writer) {
 	binary.Write(w, binary.LittleEndian, s.Width)
 	binary.Write(w, binary.LittleEndian, s.Height)
 	binary.Write(w, binary.LittleEndian, s.Format)
@@ -129,9 +129,9 @@ func loadImage(filePath string) (image.Image, error) {
 	return img, nil
 }
 
-func fullRect(img image.Image) Rect {
+func fullRect(img image.Image) rect {
 	b := img.Bounds()
-	return Rect{
+	return rect{
 		X: 0,
 		Y: 0,
 		W: b.Dx(),
@@ -139,7 +139,7 @@ func fullRect(img image.Image) Rect {
 	}
 }
 
-func analyzeAlpha(img image.Image, r Rect, alphaDisabled bool) uint16 {
+func analyzeAlpha(img image.Image, r rect, alphaDisabled bool) uint16 {
 	if alphaDisabled {
 		return FMT_ALPHA_A0
 	}
@@ -183,7 +183,7 @@ type paletteResult struct {
 	paletteRGB565 []uint16 // 0xRGB565
 }
 
-func buildIndexed8Palette(img image.Image, r Rect) (pixels []byte, palette []uint32, ok bool) {
+func buildIndexed8Palette(img image.Image, r rect) (pixels []byte, palette []uint32, ok bool) {
 
 	// first build the color index map
 	colorIndex := make(map[uint32]int, 256)
@@ -233,7 +233,7 @@ func buildIndexed8Palette(img image.Image, r Rect) (pixels []byte, palette []uin
 }
 
 // Indexed 8-bit (with palette)
-func encodeI8(img image.Image, r Rect) (pixeldata []byte, palette []uint32) {
+func encodeI8(img image.Image, r rect) (pixeldata []byte, palette []uint32) {
 	pixels, paletteRGBA, ok := buildIndexed8Palette(img, r)
 	if !ok {
 		return nil, nil
@@ -242,7 +242,7 @@ func encodeI8(img image.Image, r Rect) (pixeldata []byte, palette []uint32) {
 }
 
 // RGB565 + A0 (no separate alpha bitstream)
-func encodeRGB565A0(img image.Image, r Rect) ([]byte, []byte) {
+func encodeRGB565A0(img image.Image, r rect) ([]byte, []byte) {
 	pixels := make([]byte, 0, r.W*r.H*2)
 
 	for y := 0; y < r.H; y++ {
@@ -261,7 +261,7 @@ func encodeRGB565A0(img image.Image, r Rect) ([]byte, []byte) {
 }
 
 // RGB565
-func encodeRGB565(img image.Image, r Rect) []byte {
+func encodeRGB565(img image.Image, r rect) []byte {
 	pixels := make([]byte, 0, r.W*r.H*2)
 
 	for y := 0; y < r.H; y++ {
@@ -280,7 +280,7 @@ func encodeRGB565(img image.Image, r Rect) []byte {
 }
 
 // RGB565 + A1 (separate alpha bitstream)
-func encodeRGB565A1(img image.Image, r Rect) ([]byte, []byte) {
+func encodeRGB565A1(img image.Image, r rect) ([]byte, []byte) {
 	pixels := make([]byte, 0, r.W*r.H*2)
 	alpha := make([]byte, 0, (r.W*r.H+7)/8)
 
@@ -316,7 +316,7 @@ func encodeRGB565A1(img image.Image, r Rect) ([]byte, []byte) {
 }
 
 // RGBA8888
-func encodeRGBA8888(img image.Image, r Rect) []byte {
+func encodeRGBA8888(img image.Image, r rect) []byte {
 	pixels := make([]byte, 0, r.W*r.H*4)
 
 	for y := 0; y < r.H; y++ {
@@ -358,12 +358,6 @@ func writePack(outPath string, sprites []spriteEntry, pixelData [][]byte, alphaD
 	binary.Write(f, binary.LittleEndian, uint32(len(sprites))) // sprite count
 	binary.Write(f, binary.LittleEndian, uint32(0))            // reserved
 
-	// --- Sprite table placeholder ---
-	spriteArrayOffset, _ := f.Seek(0, io.SeekCurrent)
-	for _, s := range sprites {
-		s.WriteBinary(f)
-	}
-
 	var offset int64
 
 	// --- Palette blocks ---
@@ -402,15 +396,18 @@ func writePack(outPath string, sprites []spriteEntry, pixelData [][]byte, alphaD
 		}
 	}
 
-	// --- Rewrite header + table ---
-	f.Seek(0, io.SeekStart)
-	binary.Write(f, binary.LittleEndian, uint64(spriteArrayOffset))
-	binary.Write(f, binary.LittleEndian, uint32(len(sprites)))
-	binary.Write(f, binary.LittleEndian, uint32(0))
+	// --- Sprite table ---
+	spritesArrayOffset, _ := f.Seek(0, io.SeekCurrent)
 
 	for _, s := range sprites {
-		s.WriteBinary(f)
+		s.writeBinary(f)
 	}
+
+	// --- Rewrite header + table ---
+	f.Seek(0, io.SeekStart)
+	binary.Write(f, binary.LittleEndian, uint64(spritesArrayOffset))
+	binary.Write(f, binary.LittleEndian, uint32(len(sprites)))
+	binary.Write(f, binary.LittleEndian, uint32(0))
 
 	return nil
 }
@@ -421,7 +418,7 @@ func Build(jsonPath, outPath string) error {
 		return err
 	}
 
-	var pack PackDesc
+	var pack packDesc
 	if err := json.Unmarshal(jdata, &pack); err != nil {
 		return err
 	}
@@ -439,8 +436,8 @@ func Build(jsonPath, outPath string) error {
 
 		for _, s := range f.Sprites {
 			r := fullRect(img)
-			if s.Rect != nil {
-				r = *s.Rect
+			if s.rect != nil {
+				r = *s.rect
 			}
 
 			formatEnum, err := formatStringToEnum(s.Format)

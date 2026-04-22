@@ -5,13 +5,13 @@ import (
 	"go-gx2/bdf"
 )
 
-// BuildGlyphBDF converts a BDF Character into a BuiltGlyph.
+// BuildGlyphBDF converts a BDF Character into a builtGlyph.
 // The bitmap is returned as tightly packed 8‑bit alpha,
 // row‑major, with origin at the top‑left of the glyph bitmap.
-func BuildGlyphBDF(ch *bdf.Character) BuiltGlyph {
+func buildGlyphBDF(ch *bdf.Character) builtGlyph {
 	img := ch.Alpha
 	if img == nil {
-		return BuiltGlyph{
+		return builtGlyph{
 			Rune:     ch.Encoding,
 			AdvanceX: int16(ch.Advance[0]),
 		}
@@ -35,7 +35,7 @@ func BuildGlyphBDF(ch *bdf.Character) BuiltGlyph {
 	// bearing_y = distance from baseline to top of bitmap
 	bearingY := h + ch.LowerPoint[1]
 
-	return BuiltGlyph{
+	return builtGlyph{
 		Rune:     ch.Encoding,
 		AdvanceX: int16(ch.Advance[0]),
 
