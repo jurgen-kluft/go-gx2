@@ -29,6 +29,7 @@
 !*.go
 !go.mod
 !go.sum
+!go.work
 
 !*.json
 !*.mk

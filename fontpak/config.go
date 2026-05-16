@@ -6,65 +6,65 @@ import (
 	"os"
 )
 
-type options struct {
+type Options struct {
 	FontSize int // FontSize is the size of the font in points (pt).
 	DPI      int // DPI is the dots per inch for rendering the font. Higher DPI means higher quality but larger bitmaps.
 }
 
-type config struct {
-	Files []*fontFile `json:"files"`
+type Config struct {
+	Files []*FontFile `json:"files"`
 }
 
-type fontFile struct {
+type FontFile struct {
 	File  string        `json:"file"`
-	Fonts []*fontConfig `json:"fonts"`
+	Fonts []*FontConfig `json:"fonts"`
 }
 
-type fontConfig struct {
+type FontConfig struct {
 	Name    string       `json:"name"`
 	Dpi     int          `json:"dpi"`
 	Size    int          `json:"size"`
-	CharMap []charConfig `json:"chars"`
+	CharMap []CharConfig `json:"chars"`
 }
 
-type charConfig struct {
+type CharConfig struct {
 	ASCII string `json:"ascii"`
 	Glyph string `json:"glyph"`
 }
 
-func LoadConfig(path string) (*config, error) {
+func LoadConfig(path string) (error, *Config) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return err, nil
 	}
-	var cfg config
+	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+		return err, nil
 	}
 
 	// Validate the config
 	for _, file := range cfg.Files {
 		if file.File == "" {
-			return nil, fmt.Errorf("font file path cannot be empty")
+			return fmt.Errorf("font file path cannot be empty"), nil
 		}
 		for _, font := range file.Fonts {
 			if font.Name == "" {
-				return nil, fmt.Errorf("font name cannot be empty in file %q", file.File)
+				return fmt.Errorf("font name cannot be empty in file %q", file.File), nil
 			}
 			if font.Size <= 0 {
-				return nil, fmt.Errorf("font size must be positive in font %q of file %q", font.Name, file.File)
+				return fmt.Errorf("font size must be positive in font %q of file %q", font.Name, file.File), nil
 			}
 			if font.Dpi == 0 {
 				font.Dpi = 72 // default DPI
 			}
 			if font.Dpi < 0 || font.Dpi > 1000 {
-				return nil, fmt.Errorf("DPI must be between 0 and 1000 in font %q of file %q", font.Name, file.File)
+				return fmt.Errorf("DPI must be between 0 and 1000 in font %q of file %q", font.Name, file.File), nil
 			}
 			if len(font.CharMap) == 0 || len(font.CharMap) > 255 {
-				return nil, fmt.Errorf("char map must contain between 1 and 255 characters in font %q of file %q", font.Name, file.File)
+				return fmt.Errorf("char map must contain between 1 and 255 characters in font %q of file %q", font.Name, file.File), nil
 			}
 		}
 	}
 
-	return &cfg, nil
+	return nil, &cfg
 }

@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"go-gx2/bdf"
+	"github.com/jurgen-kluft/go-gx2/bdf"
 )
 
 type builtFont struct {
@@ -31,11 +31,8 @@ type builtGlyph struct {
 	Bitmap   []byte
 }
 
-//
-// TTF builder
-//
-
-func buildTTFFont(fontPath string, ops options, name string, parsedChars [256]rune) (*builtFont, error) {
+// buildTTFFont reads a TTF font file and builds a builtFont struct based on the provided character mapping.
+func buildTTFFont(fontPath string, ops Options, name string, parsedChars [256]rune) (*builtFont, error) {
 
 	data, err := os.ReadFile(fontPath)
 	if err != nil {
@@ -125,11 +122,7 @@ func buildBDFFont(fontPath string, name string, parsedChars [256]rune) (*builtFo
 	return &font, nil
 }
 
-//
-// Public API
-//
-
-func BuildFontPak(cfg *config, outFilepath string) error {
+func BuildFontPak(cfg *Config) (error, *FontPack) {
 	var out []builtFont
 
 	// build the charmap
@@ -142,29 +135,29 @@ func BuildFontPak(cfg *config, outFilepath string) error {
 			var built *builtFont
 			var err error
 
-			options := options{
+			options := Options{
 				FontSize: f.Size,
 				DPI:      f.Dpi,
 			}
 
 			numChars := len(f.CharMap)
 			if numChars == 0 {
-				return fmt.Errorf("font file %q has an empty char map", file.File)
+				return fmt.Errorf("font file %q has an empty char map", file.File), nil
 			}
 			if numChars > 255 {
-				return fmt.Errorf("font file %q has too many chars in char map (max 255)", file.File)
+				return fmt.Errorf("font file %q has too many chars in char map (max 255)", file.File), nil
 			}
 			for i := range parsedChars {
 				parsedChars[i] = 0
 			}
 			for _, c := range f.CharMap {
 				if len(c.ASCII) != 1 {
-					return fmt.Errorf("font file %q has invalid char map key: %q", file.File, c.ASCII)
+					return fmt.Errorf("font file %q has invalid char map key: %q", file.File, c.ASCII), nil
 				}
 				ascii := c.ASCII[0]
 				glyph := []rune(c.Glyph)
 				if len(glyph) != 1 {
-					return fmt.Errorf("font file %q has invalid char map value for ASCII %d: %q", file.File, ascii, c.Glyph)
+					return fmt.Errorf("font file %q has invalid char map value for ASCII %d: %q", file.File, ascii, c.Glyph), nil
 				}
 				parsedChars[ascii] = glyph[0]
 			}
@@ -186,25 +179,41 @@ func BuildFontPak(cfg *config, outFilepath string) error {
 				)
 
 			default:
-				return fmt.Errorf("unsupported font type: %s", ext)
+				return fmt.Errorf("unsupported font type: %s", ext), nil
 			}
 
 			if err != nil {
-				return err
+				return err, nil
 			}
 
 			out = append(out, *built)
 		}
 	}
 
-	data, err := writeFontPack(out)
-	if err != nil {
-		return err
+	// Conver the builtFont structs to Font structs, which is the format expected by the font pack reader and writer.
+	var result []Font
+	for _, bf := range out {
+		var font Font
+		font.Ascent = bf.Ascent
+		font.Descent = bf.Descent
+		font.LineGap = bf.LineGap
+		font.Map = bf.CharMap
+
+		for _, bg := range bf.Glyphs {
+			var glyph Glyph
+			glyph.AdvanceX = bg.AdvanceX
+			glyph.BearingX = bg.BearingX
+			glyph.BearingY = bg.BearingY
+			glyph.Width = bg.Width
+			glyph.Height = bg.Height
+			glyph.Bitmap = bg.Bitmap
+			font.Glyphs = append(font.Glyphs, glyph)
+		}
+
+		result = append(result, font)
 	}
 
-	if err := os.WriteFile(outFilepath, data, 0644); err != nil {
-		return err
+	return nil, &FontPack{
+		Fonts: result,
 	}
-
-	return nil
 }

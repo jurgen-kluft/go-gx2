@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	sprite_pak "go-gx2/spritepak"
 	"os"
 	"path/filepath"
+
+	sprite_pak "github.com/jurgen-kluft/go-gx2/spritepak"
 )
 
 func main() {
@@ -16,10 +18,29 @@ func main() {
 	jsonPath := os.Args[1]
 	outPath := os.Args[2]
 
-	if err := sprite_pak.Build(jsonPath, outPath); err != nil {
-		fmt.Printf("Error building sprite pak: %v\n", err)
+	// Load the JSON file
+	var config sprite_pak.Configuration
+	if jsonData, err := os.ReadFile(jsonPath); err != nil {
+		fmt.Printf("Error reading JSON file: %v\n", err)
 		os.Exit(1)
+	} else {
+		json.Unmarshal(jsonData, &config)
 	}
 
-	fmt.Printf("Built sprite pak: %s\n", outPath)
+	if sprites, err := sprite_pak.Build(config); err != nil {
+		fmt.Printf("Error building sprite pak: %v\n", err)
+		os.Exit(1)
+	} else {
+		f, err := os.Create(outPath)
+		if err != nil {
+			fmt.Printf("Error creating output file: %v\n", err)
+			os.Exit(1)
+		}
+		if err := sprite_pak.WritePack(f, sprites); err != nil {
+			fmt.Printf("Error writing sprite pak: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Built sprite pak: %s\n", outPath)
+	}
 }

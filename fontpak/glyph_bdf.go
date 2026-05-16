@@ -2,7 +2,7 @@
 package fontpack
 
 import (
-	"go-gx2/bdf"
+	"github.com/jurgen-kluft/go-gx2/bdf"
 )
 
 // BuildGlyphBDF converts a BDF Character into a builtGlyph.

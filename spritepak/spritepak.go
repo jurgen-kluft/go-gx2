@@ -1,39 +1,37 @@
-package spritepak
+package spritepack
 
 import (
 	"bufio"
-	"encoding/binary"
-	"encoding/json"
 	"fmt"
-	"go-gx2/tga"
 	"image"
 	_ "image/png"
-	"io"
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/jurgen-kluft/go-gx2/tga"
 )
 
 //
 // ===== JSON structures =====
 //
 
-type packDesc struct {
-	Files []fileDesc `json:"files"`
+type Configuration struct {
+	Files []FileDesc `json:"files"`
 }
 
-type fileDesc struct {
+type FileDesc struct {
 	File    string       `json:"file"`
-	Sprites []spriteDesc `json:"sprites"`
+	Sprites []SpriteDesc `json:"sprites"`
 }
 
-type spriteDesc struct {
+type SpriteDesc struct {
 	Name   string `json:"name"`
 	Format string `json:"format"`
-	rect   *rect  `json:"rect,omitempty"`
+	Rect   *Rect  `json:"rect,omitempty"`
 }
 
-type rect struct {
+type Rect struct {
 	X int `json:"x"`
 	Y int `json:"y"`
 	W int `json:"w"`
@@ -77,28 +75,16 @@ func formatStringToEnum(s string) (uint16, error) {
 }
 
 // ===== Sprite table entry =====
-type spriteEntry struct {
-	Width             uint16
-	Height            uint16
-	Format            uint16
-	Reserved          uint16
-	PixelDataSize     uint32
-	AlphaDataSize     uint32
-	PixelDataOffset   uint64
-	AlphaDataOffset   uint64
-	PaletteDataOffset uint64
-}
-
-func (s spriteEntry) writeBinary(w io.Writer) {
-	binary.Write(w, binary.LittleEndian, s.Width)
-	binary.Write(w, binary.LittleEndian, s.Height)
-	binary.Write(w, binary.LittleEndian, s.Format)
-	binary.Write(w, binary.LittleEndian, s.Reserved)
-	binary.Write(w, binary.LittleEndian, s.PixelDataSize)
-	binary.Write(w, binary.LittleEndian, s.AlphaDataSize)
-	binary.Write(w, binary.LittleEndian, s.PixelDataOffset)
-	binary.Write(w, binary.LittleEndian, s.AlphaDataOffset)
-	binary.Write(w, binary.LittleEndian, s.PaletteDataOffset)
+type SpriteEntry struct {
+	Width         uint16
+	Height        uint16
+	Format        uint16
+	Reserved      uint16
+	PixelDataSize uint32
+	AlphaDataSize uint32
+	PixelData     []byte
+	AlphaData     []byte
+	PaletteData   []uint32
 }
 
 //
@@ -129,9 +115,9 @@ func loadImage(filePath string) (image.Image, error) {
 	return img, nil
 }
 
-func fullRect(img image.Image) rect {
+func fullRect(img image.Image) Rect {
 	b := img.Bounds()
-	return rect{
+	return Rect{
 		X: 0,
 		Y: 0,
 		W: b.Dx(),
@@ -139,7 +125,7 @@ func fullRect(img image.Image) rect {
 	}
 }
 
-func analyzeAlpha(img image.Image, r rect, alphaDisabled bool) uint16 {
+func analyzeAlpha(img image.Image, r Rect, alphaDisabled bool) uint16 {
 	if alphaDisabled {
 		return FMT_ALPHA_A0
 	}
@@ -183,7 +169,7 @@ type paletteResult struct {
 	paletteRGB565 []uint16 // 0xRGB565
 }
 
-func buildIndexed8Palette(img image.Image, r rect) (pixels []byte, palette []uint32, ok bool) {
+func buildIndexed8Palette(img image.Image, r Rect) (pixels []byte, palette []uint32, ok bool) {
 
 	// first build the color index map
 	colorIndex := make(map[uint32]int, 256)
@@ -233,7 +219,7 @@ func buildIndexed8Palette(img image.Image, r rect) (pixels []byte, palette []uin
 }
 
 // Indexed 8-bit (with palette)
-func encodeI8(img image.Image, r rect) (pixeldata []byte, palette []uint32) {
+func encodeI8(img image.Image, r Rect) (pixeldata []byte, palette []uint32) {
 	pixels, paletteRGBA, ok := buildIndexed8Palette(img, r)
 	if !ok {
 		return nil, nil
@@ -242,7 +228,7 @@ func encodeI8(img image.Image, r rect) (pixeldata []byte, palette []uint32) {
 }
 
 // RGB565 + A0 (no separate alpha bitstream)
-func encodeRGB565A0(img image.Image, r rect) ([]byte, []byte) {
+func encodeRGB565A0(img image.Image, r Rect) ([]byte, []byte) {
 	pixels := make([]byte, 0, r.W*r.H*2)
 
 	for y := 0; y < r.H; y++ {
@@ -261,7 +247,7 @@ func encodeRGB565A0(img image.Image, r rect) ([]byte, []byte) {
 }
 
 // RGB565
-func encodeRGB565(img image.Image, r rect) []byte {
+func encodeRGB565(img image.Image, r Rect) []byte {
 	pixels := make([]byte, 0, r.W*r.H*2)
 
 	for y := 0; y < r.H; y++ {
@@ -280,7 +266,7 @@ func encodeRGB565(img image.Image, r rect) []byte {
 }
 
 // RGB565 + A1 (separate alpha bitstream)
-func encodeRGB565A1(img image.Image, r rect) ([]byte, []byte) {
+func encodeRGB565A1(img image.Image, r Rect) ([]byte, []byte) {
 	pixels := make([]byte, 0, r.W*r.H*2)
 	alpha := make([]byte, 0, (r.W*r.H+7)/8)
 
@@ -316,7 +302,7 @@ func encodeRGB565A1(img image.Image, r rect) ([]byte, []byte) {
 }
 
 // RGBA8888
-func encodeRGBA8888(img image.Image, r rect) []byte {
+func encodeRGBA8888(img image.Image, r Rect) []byte {
 	pixels := make([]byte, 0, r.W*r.H*4)
 
 	for y := 0; y < r.H; y++ {
@@ -334,37 +320,24 @@ func encodeRGBA8888(img image.Image, r rect) []byte {
 	return pixels
 }
 
-func Build(jsonPath, outPath string) error {
-	jdata, err := os.ReadFile(jsonPath)
-	if err != nil {
-		return err
-	}
+func Build(cfg Configuration) ([]SpriteEntry, error) {
+	sprites := make([]SpriteEntry, 0, 1024)
 
-	var pack packDesc
-	if err := json.Unmarshal(jdata, &pack); err != nil {
-		return err
-	}
-
-	var sprites []spriteEntry
-	var pixelData [][]byte
-	var alphaData [][]byte
-	var paletteData [][]uint32
-
-	for _, f := range pack.Files {
+	for _, f := range cfg.Files {
 		img, err := loadImage(f.File)
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("failed to load image %s: %w", f.File, err)
 		}
 
 		for _, s := range f.Sprites {
 			r := fullRect(img)
-			if s.rect != nil {
-				r = *s.rect
+			if s.Rect != nil {
+				r = *s.Rect
 			}
 
 			formatEnum, err := formatStringToEnum(s.Format)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			var px []byte
@@ -393,30 +366,21 @@ func Build(jsonPath, outPath string) error {
 			case FMT_I8:
 				px, pd = encodeI8(img, r)
 			default:
-				return fmt.Errorf("unsupported format: %s", s.Format)
+				return nil, fmt.Errorf("unsupported format: %s", s.Format)
 			}
 
-			sprites = append(sprites, spriteEntry{
+			sprites = append(sprites, SpriteEntry{
 				Width:         uint16(r.W),
 				Height:        uint16(r.H),
 				Format:        formatEnum,
 				PixelDataSize: uint32(len(px)),
 				AlphaDataSize: uint32(len(al)),
+				PixelData:     px,
+				AlphaData:     al,
+				PaletteData:   pd,
 			})
-			pixelData = append(pixelData, px)
-			alphaData = append(alphaData, al)
-			paletteData = append(paletteData, pd)
 		}
 	}
 
-	// TODO, this can be a lot smarter, since some palettes might be subsets of others, but
-	// for now we just identify exact matches and reuse those.
-	paletteDataRefArray, paletteDataArray := reuseDataBlocks(paletteData)
-
-	if err := writePack(outPath, sprites, pixelData, alphaData, paletteDataRefArray, paletteDataArray); err != nil {
-		return err
-	}
-
-	fmt.Printf("Wrote %d sprites to %s\n", len(sprites), outPath)
-	return nil
+	return sprites, nil
 }

@@ -12,7 +12,7 @@ func fixedToInt(v fixed.Int26_6) int {
 	return int(v.Round())
 }
 
-func newTTFFace(opts options, data []byte) (font.Face, error) {
+func newTTFFace(opts Options, data []byte) (font.Face, error) {
 	f, err := opentype.Parse(data)
 	if err != nil {
 		return nil, err
