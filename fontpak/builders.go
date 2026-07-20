@@ -122,7 +122,7 @@ func buildBDFFont(fontPath string, name string, parsedChars [256]rune) (*builtFo
 	return &font, nil
 }
 
-func BuildFontPak(cfg *Config) (error, *FontPack) {
+func Build(cfg FontPackCfg) (*FontPack, error) {
 	var out []builtFont
 
 	// build the charmap
@@ -137,29 +137,28 @@ func BuildFontPak(cfg *Config) (error, *FontPack) {
 
 			options := Options{
 				FontSize: f.Size,
-				DPI:      f.Dpi,
 			}
 
-			numChars := len(f.CharMap)
+			numChars := len(f.Chars)
 			if numChars == 0 {
-				return fmt.Errorf("font file %q has an empty char map", file.File), nil
+				return nil, fmt.Errorf("font file %q has an empty char map", file.File)
 			}
 			if numChars > 255 {
-				return fmt.Errorf("font file %q has too many chars in char map (max 255)", file.File), nil
+				return nil, fmt.Errorf("font file %q has too many chars in char map (max 255)", file.File)
 			}
 			for i := range parsedChars {
 				parsedChars[i] = 0
 			}
-			for _, c := range f.CharMap {
-				if len(c.ASCII) != 1 {
-					return fmt.Errorf("font file %q has invalid char map key: %q", file.File, c.ASCII), nil
+			for i, ascii := range f.Chars {
+				glyph := f.Glyphs[i]
+				if len(ascii) != 1 {
+					return nil, fmt.Errorf("font file %q has invalid char %s with glyph %s", file.File, ascii, glyph)
 				}
-				ascii := c.ASCII[0]
-				glyph := []rune(c.Glyph)
 				if len(glyph) != 1 {
-					return fmt.Errorf("font file %q has invalid char map value for ASCII %d: %q", file.File, ascii, c.Glyph), nil
+					return nil, fmt.Errorf("font file %q has invalid char %s with glyph %s", file.File, ascii, glyph)
 				}
-				parsedChars[ascii] = glyph[0]
+				ascii_index := int(ascii[0])
+				parsedChars[ascii_index] = rune(glyph[0])
 			}
 
 			switch ext {
@@ -179,11 +178,11 @@ func BuildFontPak(cfg *Config) (error, *FontPack) {
 				)
 
 			default:
-				return fmt.Errorf("unsupported font type: %s", ext), nil
+				return nil, fmt.Errorf("unsupported font type: %s", ext)
 			}
 
 			if err != nil {
-				return err, nil
+				return nil, err
 			}
 
 			out = append(out, *built)
@@ -213,7 +212,7 @@ func BuildFontPak(cfg *Config) (error, *FontPack) {
 		result = append(result, font)
 	}
 
-	return nil, &FontPack{
+	return &FontPack{
 		Fonts: result,
-	}
+	}, nil
 }

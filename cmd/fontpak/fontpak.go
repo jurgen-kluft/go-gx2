@@ -16,7 +16,7 @@ func main() {
 		fmt.Printf("failed to load config: %v\n", err)
 		os.Exit(1)
 	} else {
-		if err, fontPak := font_pak.BuildFontPak(cfg); err != nil {
+		if fontPak, err := font_pak.Build(*cfg); err != nil {
 			fmt.Printf("failed to build font pak: %v\n", err)
 			os.Exit(1)
 		} else {

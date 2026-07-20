@@ -11,6 +11,7 @@ Tool takes a .json file as input that describes the images to be included in the
       "file": "sprite_map_icons.png",
       "sprites": [
          {
+           "id": 0,
            "name": "sprite1",
            "format": "RGB565A1"
          }
@@ -20,6 +21,7 @@ Tool takes a .json file as input that describes the images to be included in the
       "file": "sprite_map_buttons.tga",
       "sprites": [
          {
+           "id": 1,
            "name":"title",
            "format": "I8A1",
            "rect": {
@@ -30,6 +32,7 @@ Tool takes a .json file as input that describes the images to be included in the
             }
          },
          {
+           "id": 2,
            "name":"button1",
            "format": "RGBA8888",
            "rect": {

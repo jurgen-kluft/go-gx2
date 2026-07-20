@@ -17,13 +17,11 @@ func equalUint32Slice(a, b []uint32) bool {
 	return true
 }
 
-func equalSpriteEntry(a, b SpriteEntry) bool {
+func equalSpriteEntry(a, b Sprite) bool {
 	if a.Width != b.Width ||
 		a.Height != b.Height ||
-		a.Format != b.Format ||
-		a.Reserved != b.Reserved ||
-		a.PixelDataSize != b.PixelDataSize ||
-		a.AlphaDataSize != b.AlphaDataSize {
+		a.PixelFormat != b.PixelFormat ||
+		a.AlphaFormat != b.AlphaFormat {
 		return false
 	}
 
@@ -33,14 +31,11 @@ func equalSpriteEntry(a, b SpriteEntry) bool {
 	if !bytes.Equal(a.AlphaData, b.AlphaData) {
 		return false
 	}
-	if !equalUint32Slice(a.PaletteData, b.PaletteData) {
-		return false
-	}
 
 	return true
 }
 
-func equalSpriteEntries(a, b []SpriteEntry) bool {
+func equalSpriteEntries(a, b []Sprite) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -55,28 +50,22 @@ func equalSpriteEntries(a, b []SpriteEntry) bool {
 func TestWriteReadPackRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	inSprites := []SpriteEntry{
+	inSprites := []Sprite{
 		{
-			Width:         16,
-			Height:        8,
-			Format:        FMT_RGB565A1,
-			Reserved:      0,
-			PixelDataSize: 6,
-			AlphaDataSize: 2,
-			PixelData:     []byte{1, 2, 3, 4, 5, 6},
-			AlphaData:     []byte{0x3C, 0xC3},
-			PaletteData:   nil,
+			Width:       16,
+			Height:      8,
+			PixelFormat: FMT_PIXEL_RGB565,
+			AlphaFormat: FMT_ALPHA_A4,
+			PixelData:   []byte{1, 2, 3, 4, 5, 6},
+			AlphaData:   []byte{0x3C, 0xC3},
 		},
 		{
-			Width:         4,
-			Height:        4,
-			Format:        FMT_I8,
-			Reserved:      0,
-			PixelDataSize: 8,
-			AlphaDataSize: 0,
-			PixelData:     []byte{0, 1, 2, 3, 4, 5, 6, 7},
-			AlphaData:     nil,
-			PaletteData:   []uint32{0x11223344, 0x55667788, 0x99AABBCC},
+			Width:       4,
+			Height:      4,
+			PixelFormat: FMT_PIXEL_I8,
+			AlphaFormat: FMT_ALPHA_A0,
+			PixelData:   []byte{0, 1, 2, 3, 4, 5, 6, 7},
+			AlphaData:   nil,
 		},
 	}
 
@@ -134,15 +123,14 @@ func TestWriteReadPackLargePayload(t *testing.T) {
 		alphaData[i] = byte((i * 3) % 255)
 	}
 
-	inSprites := []SpriteEntry{
+	inSprites := []Sprite{
 		{
-			Width:         512,
-			Height:        512,
-			Format:        FMT_RGBA8888,
-			PixelDataSize: uint32(len(pixelData)),
-			AlphaDataSize: uint32(len(alphaData)),
-			PixelData:     pixelData,
-			AlphaData:     alphaData,
+			Width:       512,
+			Height:      512,
+			PixelFormat: FMT_PIXEL_RGBA8888,
+			AlphaFormat: FMT_ALPHA_A8,
+			PixelData:   pixelData,
+			AlphaData:   alphaData,
 		},
 	}
 

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,16 +17,10 @@ func main() {
 	jsonPath := os.Args[1]
 	outPath := os.Args[2]
 
-	// Load the JSON file
-	var config sprite_pak.Configuration
-	if jsonData, err := os.ReadFile(jsonPath); err != nil {
-		fmt.Printf("Error reading JSON file: %v\n", err)
+	if config, err := sprite_pak.LoadConfig(jsonPath); err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
 		os.Exit(1)
-	} else {
-		json.Unmarshal(jsonData, &config)
-	}
-
-	if sprites, err := sprite_pak.Build(config); err != nil {
+	} else if sprites, palettes, err := sprite_pak.Build(config); err != nil {
 		fmt.Printf("Error building sprite pak: %v\n", err)
 		os.Exit(1)
 	} else {
@@ -40,6 +33,8 @@ func main() {
 			fmt.Printf("Error writing sprite pak: %v\n", err)
 			os.Exit(1)
 		}
+
+		_ = palettes // Currently not used
 
 		fmt.Printf("Built sprite pak: %s\n", outPath)
 	}

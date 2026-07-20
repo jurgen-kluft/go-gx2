@@ -11,33 +11,30 @@ type Options struct {
 	DPI      int // DPI is the dots per inch for rendering the font. Higher DPI means higher quality but larger bitmaps.
 }
 
-type Config struct {
-	Files []*FontFile `json:"files"`
+type FontPackCfg struct {
+	Files []*FontFileCfg `json:"fonts"`
 }
 
-type FontFile struct {
-	File  string        `json:"file"`
-	Fonts []*FontConfig `json:"fonts"`
+type FontFileCfg struct {
+	File  string     `json:"file"`
+	Fonts []*FontCfg `json:"fonts"`
 }
 
-type FontConfig struct {
-	Name    string       `json:"name"`
-	Dpi     int          `json:"dpi"`
-	Size    int          `json:"size"`
-	CharMap []CharConfig `json:"chars"`
+type FontCfg struct {
+	Name   string   `json:"name"`
+	Id     int      `json:"id"`
+	Dpix   int      `json:"dpi"`
+	Size   int      `json:"size"`
+	Chars  []string `json:"chars"`
+	Glyphs []string `json:"glyphs"`
 }
 
-type CharConfig struct {
-	ASCII string `json:"ascii"`
-	Glyph string `json:"glyph"`
-}
-
-func LoadConfig(path string) (error, *Config) {
+func LoadConfig(path string) (error, *FontPackCfg) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err, nil
 	}
-	var cfg Config
+	var cfg FontPackCfg
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return err, nil
 	}
@@ -54,13 +51,13 @@ func LoadConfig(path string) (error, *Config) {
 			if font.Size <= 0 {
 				return fmt.Errorf("font size must be positive in font %q of file %q", font.Name, file.File), nil
 			}
-			if font.Dpi == 0 {
-				font.Dpi = 72 // default DPI
-			}
-			if font.Dpi < 0 || font.Dpi > 1000 {
-				return fmt.Errorf("DPI must be between 0 and 1000 in font %q of file %q", font.Name, file.File), nil
-			}
-			if len(font.CharMap) == 0 || len(font.CharMap) > 255 {
+			// if font.Dpi == 0 {
+			// 	font.Dpi = 72 // default DPI
+			// }
+			// if font.Dpi < 0 || font.Dpi > 1000 {
+			// 	return fmt.Errorf("DPI must be between 0 and 1000 in font %q of file %q", font.Name, file.File), nil
+			// }
+			if len(font.Chars) == 0 || len(font.Chars) > 255 {
 				return fmt.Errorf("char map must contain between 1 and 255 characters in font %q of file %q", font.Name, file.File), nil
 			}
 		}
