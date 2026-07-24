@@ -10,14 +10,13 @@ type Sprite struct {
 	Height      uint16
 	PixelFormat PixelFormat
 	AlphaFormat AlphaFormat
+	Reserved    uint16
 	PixelData   []byte
 	AlphaData   []byte
 }
 
 type SpritePack struct {
-	Sprites  []Sprite
-	Count    uint32
-	Reserved uint32
+	Sprites []Sprite
 }
 
 // ===== Alpha Format =====

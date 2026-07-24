@@ -14,11 +14,12 @@ type builtFont struct {
 	GlyphsOffset  int64
 	BitmapsOffset int64
 	Glyphs        []builtGlyph
-	CharMap       [256]uint8
+	CharMap       [128 - 3]uint8
 	Ascent        int16
 	Descent       int16
 	LineGap       int16
 	Reserved      int16
+	FontType      FontType
 }
 
 type builtGlyph struct {
@@ -32,7 +33,7 @@ type builtGlyph struct {
 }
 
 // buildTTFFont reads a TTF font file and builds a builtFont struct based on the provided character mapping.
-func buildTTFFont(fontPath string, ops Options, name string, parsedChars [256]rune) (*builtFont, error) {
+func buildTTFFont(fontPath string, ops Options, name string, parsedChars [128 - 3]rune) (*builtFont, error) {
 
 	data, err := os.ReadFile(fontPath)
 	if err != nil {
@@ -47,9 +48,11 @@ func buildTTFFont(fontPath string, ops Options, name string, parsedChars [256]ru
 
 	var font builtFont
 	font.Name = name
+	if ops.SDF {
+		font.FontType = FontTypeSDF
+	}
 
-	// init ASCII map
-	for i := 0; i < 256; i++ {
+	for i := 0; i < len(font.CharMap); i++ {
 		font.CharMap[i] = 0xFF
 	}
 
@@ -62,7 +65,7 @@ func buildTTFFont(fontPath string, ops Options, name string, parsedChars [256]ru
 			continue
 		}
 
-		glyph, err := buildGlyphTTF(face, r)
+		glyph, err := buildGlyphTTF(face, r, ops)
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +82,7 @@ func buildTTFFont(fontPath string, ops Options, name string, parsedChars [256]ru
 }
 
 // buildBDFFont reads a BDF font file and builds a builtFont struct based on the provided character mapping.
-func buildBDFFont(fontPath string, name string, parsedChars [256]rune) (*builtFont, error) {
+func buildBDFFont(fontPath string, ops Options, name string, parsedChars [128 - 3]rune) (*builtFont, error) {
 
 	bdfData, err := os.ReadFile(fontPath)
 	if err != nil {
@@ -93,8 +96,11 @@ func buildBDFFont(fontPath string, name string, parsedChars [256]rune) (*builtFo
 
 	var font builtFont
 	font.Name = name
+	if ops.SDF {
+		font.FontType = FontTypeSDF
+	}
 
-	for i := 0; i < 256; i++ {
+	for i := 0; i < len(font.CharMap); i++ {
 		font.CharMap[i] = 0xFF
 	}
 
@@ -113,7 +119,7 @@ func buildBDFFont(fontPath string, name string, parsedChars [256]rune) (*builtFo
 			continue
 		}
 
-		bg := buildGlyphBDF(g)
+		bg := buildGlyphBDF(g, ops)
 		index := uint8(len(font.Glyphs))
 		font.CharMap[ascii] = index
 		font.Glyphs = append(font.Glyphs, bg)
@@ -122,11 +128,11 @@ func buildBDFFont(fontPath string, name string, parsedChars [256]rune) (*builtFo
 	return &font, nil
 }
 
-func Build(cfg FontPackCfg) (*FontPack, error) {
+func Build(cfg *FontPackCfg) (*FontPack, error) {
 	var out []builtFont
 
 	// build the charmap
-	parsedChars := [256]rune{}
+	parsedChars := [128 - 3]rune{}
 
 	for _, file := range cfg.Files {
 		ext := filepath.Ext(file.File)
@@ -135,9 +141,7 @@ func Build(cfg FontPackCfg) (*FontPack, error) {
 			var built *builtFont
 			var err error
 
-			options := Options{
-				FontSize: f.Size,
-			}
+			options := f.options()
 
 			numChars := len(f.Chars)
 			if numChars == 0 {
@@ -173,6 +177,7 @@ func Build(cfg FontPackCfg) (*FontPack, error) {
 			case ".bdf":
 				built, err = buildBDFFont(
 					file.File,
+					options,
 					f.Name,
 					parsedChars,
 				)
@@ -193,21 +198,29 @@ func Build(cfg FontPackCfg) (*FontPack, error) {
 	var result []Font
 	for _, bf := range out {
 		var font Font
-		font.Ascent = bf.Ascent
-		font.Descent = bf.Descent
-		font.LineGap = bf.LineGap
+		font.Ascent = int8(bf.Ascent)
+		font.Descent = int8(bf.Descent)
+		font.LineGap = int8(bf.LineGap)
 		font.Map = bf.CharMap
+		font.FontType = bf.FontType
+		var bitmap []byte
 
 		for _, bg := range bf.Glyphs {
-			var glyph Glyph
-			glyph.AdvanceX = bg.AdvanceX
-			glyph.BearingX = bg.BearingX
-			glyph.BearingY = bg.BearingY
-			glyph.Width = bg.Width
-			glyph.Height = bg.Height
-			glyph.Bitmap = bg.Bitmap
-			font.Glyphs = append(font.Glyphs, glyph)
+			font.GlyphAdvanceX = append(font.GlyphAdvanceX, int8(bg.AdvanceX))
+			font.GlyphBearing = append(font.GlyphBearing, GlyphBearing{
+				X: int8(bg.BearingX),
+				Y: int8(bg.BearingY),
+			})
+			font.GlyphDims = append(font.GlyphDims, GlyphDimensions{
+				Width:  uint8(bg.Width),
+				Height: uint8(bg.Height),
+			})
+
+			font.GlyphOffset = append(font.GlyphOffset, uint32(len(bitmap)))
+			bitmap = append(bitmap, bg.Bitmap...)
 		}
+
+		font.Bitmap = bitmap
 
 		result = append(result, font)
 	}

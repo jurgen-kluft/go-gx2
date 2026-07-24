@@ -3,69 +3,54 @@ package sdf_font
 import (
 	"image"
 	"image/color"
+	"image/draw"
 	"image/png"
 	"log"
 	"math"
 	"os"
 
-	"github.com/golang/freetype/truetype"
-	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
 
-func NewSDFBuilder(font *truetype.Font, opts ...SDFBuilderOpt) *SDFBuilder {
+func NewSDFBuilder(face font.Face, opts ...SDFBuilderOpt) *SDFBuilder {
 	sdfBuilder := &SDFBuilder{
-		Font: font,
+		Face: face,
 	}
 
 	for _, opt := range opts {
-		if opt.FontSize != 0 {
-			sdfBuilder.FontSize = opt.FontSize
-		}
 		if opt.Buffer != 0 {
 			sdfBuilder.Buffer = opt.Buffer
 		}
+		if opt.Radius != 0 {
+			sdfBuilder.Radius = opt.Radius
+		}
+		if opt.Cutoff != 0 {
+			sdfBuilder.Cutoff = opt.Cutoff
+		}
 	}
 
-	sdfBuilder.Init()
-
+	if sdfBuilder.Buffer == 0 {
+		sdfBuilder.Buffer = 3
+	}
+	if sdfBuilder.Radius == 0 {
+		sdfBuilder.Radius = 8
+	}
+	if sdfBuilder.Cutoff == 0 {
+		sdfBuilder.Cutoff = 0.25
+	}
 	return sdfBuilder
 }
 
 type SDFBuilderOpt struct {
-	FontSize float64
-	Buffer   float64
+	Buffer int
+	Radius float64
+	Cutoff float64
 }
 
 type SDFBuilder struct {
-	Font *truetype.Font
 	Face font.Face
 	SDFBuilderOpt
-	dotStartY int
-}
-
-func (b *SDFBuilder) Init() {
-	if b.FontSize == 0 {
-		b.FontSize = 64
-	}
-	if b.Buffer == 0 {
-		b.Buffer = 3
-	}
-
-	b.Face = truetype.NewFace(b.Font, &truetype.Options{
-		Size:    b.FontSize,
-		Hinting: font.HintingFull,
-	})
-
-	metrics := b.Face.Metrics()
-
-	// https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png
-
-	fontDesignedHeight := metrics.Ascent.Floor() + metrics.Descent.Floor()
-	fixed := int(math.Round(float64(metrics.Height.Floor()-fontDesignedHeight)/2)) + 1
-
-	b.dotStartY = metrics.Height.Floor() + metrics.Descent.Floor() + fixed
 }
 
 func (b *SDFBuilder) Glyphs(min int, max int) []*Glyph {
@@ -84,48 +69,50 @@ func (b *SDFBuilder) Glyph(x rune) *Glyph {
 		return nil
 	}
 
-	i := b.Font.Index(x)
-	if i == 0 {
-		return nil
-	}
-
-	bounds, mask, maskp, advance, ok := b.Face.Glyph(fixed.P(0, b.dotStartY), x)
+	bounds, advance, ok := b.Face.GlyphBounds(x)
 	if !ok {
 		return nil
 	}
 
-	size := bounds.Size()
-
-	width := uint32(size.X)
-	height := uint32(size.Y)
-
-	if width == 0 || height == 0 {
+	width := bounds.Max.X - bounds.Min.X
+	height := bounds.Max.Y - bounds.Min.Y
+	if width <= 0 || height <= 0 {
 		return nil
 	}
 
-	buffer := int(b.Buffer)
+	mask := image.NewAlpha(image.Rect(0, 0, width.Ceil(), height.Ceil()))
+	drawer := font.Drawer{
+		Dst:  mask,
+		Src:  image.White,
+		Face: b.Face,
+		Dot: fixed.Point26_6{
+			X: -bounds.Min.X,
+			Y: -bounds.Min.Y,
+		},
+	}
+	drawer.DrawString(string(x))
 
-	top := -int32(bounds.Min.Y)
-	left := int32(bounds.Min.X)
-	a := uint32(advance.Floor())
+	bitmap, sdfWidth, sdfHeight := Generate(mask, b.Buffer, b.Radius, b.Cutoff)
 
 	g := &Glyph{
-		Width:   width,
-		Height:  height,
-		Left:    left,
-		Top:     top,
-		Advance: a,
+		Width:   uint32(sdfWidth),
+		Height:  uint32(sdfHeight),
+		Left:    int32(bounds.Min.X.Round() - b.Buffer),
+		Top:     int32((-bounds.Min.Y).Round() + b.Buffer),
+		Advance: uint32(advance.Round()),
+		Bitmap:  bitmap,
 	}
 
-	w := int(g.Width) + buffer*2
-	h := int(g.Height) + buffer*2
-
-	dst := image.NewRGBA(image.Rect(0, 0, w, h))
-	draw.DrawMask(dst, dst.Bounds(), &image.Uniform{image.Black}, image.Point{}, mask, maskp.Sub(image.Pt(buffer, buffer)), draw.Over)
-
-	g.Bitmap = CalcSDF(dst, 8, 0.25)
-
 	return g
+}
+
+func Generate(img image.Image, buffer int, radius float64, cutoff float64) ([]byte, int, int) {
+	bounds := img.Bounds()
+	width := bounds.Dx() + buffer*2
+	height := bounds.Dy() + buffer*2
+	padded := image.NewAlpha(image.Rect(0, 0, width, height))
+	draw.Draw(padded, image.Rect(buffer, buffer, buffer+bounds.Dx(), buffer+bounds.Dy()), img, bounds.Min, draw.Src)
+	return CalcSDF(padded, radius, cutoff), width, height
 }
 
 const INF = 1e20
@@ -137,10 +124,11 @@ func CalcSDF(img image.Image, radius float64, cutoff float64) []uint8 {
 	gridOuter := make([]float64, w*h)
 	gridInner := make([]float64, w*h)
 
-	f := make([]float64, w*h)
-	d := make([]float64, w*h)
-	v := make([]float64, w*h)
-	z := make([]float64, w*h)
+	scratchSize := max(w, h) + 1
+	f := make([]float64, scratchSize)
+	d := make([]float64, scratchSize)
+	v := make([]float64, scratchSize)
+	z := make([]float64, scratchSize)
 
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
@@ -295,8 +283,8 @@ func (m *Glyph) GetAdvance() uint32 {
 }
 
 func DrawGlyph(glyph *Glyph, smoothstep bool) image.Image {
-	width := int(glyph.Width + 6)
-	height := int(glyph.Height + 6)
+	width := int(glyph.Width)
+	height := int(glyph.Height)
 
 	img := image.NewRGBA(image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{width, height}})
 

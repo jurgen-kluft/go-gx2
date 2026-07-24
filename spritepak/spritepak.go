@@ -702,9 +702,7 @@ func Build(cfgs *SpritePackCfg) ([]Sprite, []PaletteRGBA, error) {
 // ReadPack reads a binary spritepak file and returns a SpritePack.
 func ReadPack(r io.Reader) (*SpritePack, error) {
 	spritePack := SpritePack{
-		Sprites:  []Sprite{},
-		Count:    0,
-		Reserved: 0,
+		Sprites: []Sprite{},
 	}
 
 	if err := codestream.ReadFromStream(r, &spritePack); err != nil {
@@ -717,9 +715,7 @@ func ReadPack(r io.Reader) (*SpritePack, error) {
 // WritePack writes a SpritePack to a binary spritepak file.
 func WritePack(w io.Writer, sprites []Sprite) error {
 	spritePack := SpritePack{
-		Sprites:  sprites,
-		Count:    uint32(len(sprites)),
-		Reserved: 0,
+		Sprites: sprites,
 	}
 
 	if err := codestream.WriteToStream(w, spritePack); err != nil {

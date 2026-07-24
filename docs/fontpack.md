@@ -7,6 +7,30 @@ A tool written in Golang that takes a .json file as input (see below) that descr
 
 Each glyph can be of any width and height, with variable spacing and kerning. The font pack file format includes metadata for each glyph, such as its width, height, ascent, descent, and advance, as well as the pixel data for the glyph itself. The pixel data is the minimal width and height bounding box of the glyph, and the metadata includes the bearing (offset) from the pen position to the top-left corner of the bitmap, as well as the advance (how much to move the pen horizontally to the next character after drawing this one).
 
+## Bitmap and SDF output
+
+TTF, OTF, and BDF inputs produce coverage bitmaps by default. Set `sdf` on an individual font to convert its coverage mask to a signed distance field:
+
+```json
+{
+    "fonts": [{
+        "file": "path/to/font.ttf",
+        "fonts": [{
+            "name": "main16-sdf",
+            "size": 16,
+            "chars": ["A", "B", " "],
+            "glyphs": ["A", "B", " "],
+            "sdf": true,
+            "sdf_buffer": 3,
+            "sdf_radius": 8,
+            "sdf_cutoff": 0.25
+        }]
+    }]
+}
+```
+
+The SDF settings default to a 3-pixel buffer, radius 8, and cutoff 0.25. The buffer is included in each glyph's stored width and height. Its horizontal bearing is reduced by the buffer and its vertical bearing is increased by the buffer; advance and font metrics do not change. Empty glyphs such as spaces remain advance-only. `Font.FontType` identifies coverage data as `FontTypeBitmap` and distance fields as `FontTypeSDF`.
+
 ## C++ library
 
 The font pack is loaded by the C/C++ library as a `font_context_t` struct that contains an array of `font_t` structs, each of which contains an array of `glyph_t` structs and a character map that maps ASCII characters to glyph indices.

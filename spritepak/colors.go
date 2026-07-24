@@ -70,6 +70,7 @@ func (c ColorRGBA) ToR8G8B8A8() (r, g, b, a uint8) {
 //  "Y8888P"   "Y88P"  888  "Y88P"  888          888       "Y888888 888  "Y8888   "Y888  "Y888 "Y8888   88888P'
 
 type PaletteRGBA []ColorRGBA
+type PaletteRGB565 []uint16
 
 func NewPaletteRGBA(colors []ColorRGBA) PaletteRGBA {
 	return PaletteRGBA(colors)
@@ -87,7 +88,7 @@ func ComparePalettes(p1, p2 PaletteRGBA) bool {
 	return true
 }
 
-func (p PaletteRGBA) ToPaletteRGB565() []uint16 {
+func (p PaletteRGBA) ToPaletteRGB565() PaletteRGB565 {
 	palette := make([]uint16, len(p))
 	for i, c := range p {
 		palette[i] = c.ToRGB565()

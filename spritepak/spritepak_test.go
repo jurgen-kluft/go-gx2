@@ -79,10 +79,6 @@ func TestWriteReadPackRoundTrip(t *testing.T) {
 		t.Fatalf("ReadPack failed: %v", err)
 	}
 
-	if pack.Count != uint32(len(inSprites)) {
-		t.Fatalf("Count mismatch: got %d want %d", pack.Count, len(inSprites))
-	}
-
 	if !equalSpriteEntries(pack.Sprites, inSprites) {
 		t.Fatalf("Sprites mismatch after round-trip:\n got: %#v\nwant: %#v", pack.Sprites, inSprites)
 	}
@@ -99,10 +95,6 @@ func TestWriteReadPackEmpty(t *testing.T) {
 	pack, err := ReadPack(bytes.NewReader(out.Bytes()))
 	if err != nil {
 		t.Fatalf("ReadPack failed: %v", err)
-	}
-
-	if pack.Count != 0 {
-		t.Fatalf("Count mismatch: got %d want 0", pack.Count)
 	}
 
 	if len(pack.Sprites) != 0 {

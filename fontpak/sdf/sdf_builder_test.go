@@ -1,57 +1,65 @@
 package sdf_font
 
 import (
-	"fmt"
+	"image"
+	"image/color"
 	"os"
 	"testing"
 
-	"github.com/golang/freetype/truetype"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/opentype"
 )
 
-func builderFor(fontFamily string) *SDFBuilder {
+func builderFor(t *testing.T, fontFamily string) *SDFBuilder {
+	t.Helper()
+
 	ttf, err := os.ReadFile("./testdata/" + fontFamily + ".ttf")
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
-	font, err := truetype.Parse(ttf)
-
+	parsed, err := opentype.Parse(ttf)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
-	return NewSDFBuilder(font, SDFBuilderOpt{FontSize: 26, Buffer: 3})
-}
-
-func TestSDFBuilder_Glyph(t *testing.T) {
-	builder := builderFor("NotoSans-Regular")
-
-	size := 0
-	for i := 0; i < 126; i++ {
-		g := builder.Glyph(rune(i))
-		if g != nil {
-			size += len(g.Bitmap)
-			fmt.Printf("%d %d\n", i, g.Top)
-			img := DrawGlyph(g, true)
-			SavePNG(fmt.Sprintf("./testdata/NotoSans/%d.png", i), img)
-		}
-	}
-	fmt.Printf("Total size of glyphs: %d bytes\n", size)
-}
-
-func TestSDFBuilder(t *testing.T) {
-	t.Run("#Glyphs", func(t *testing.T) {
-		builder := builderFor("NotoSans-Regular")
-
-		for _, rng := range [][]int{
-			{0, 255},
-			{20224, 20479},
-			{22784, 23039},
-		} {
-			glyphs := builder.Glyphs(rng[0], rng[1])
-			if len(glyphs) != rng[1]-rng[0] {
-				t.Fatalf("failed to marshal glyphs: expected %d, got %d", rng[1]-rng[0], len(glyphs))
-			}
-		}
+	face, err := opentype.NewFace(parsed, &opentype.FaceOptions{
+		Size:    26,
+		DPI:     72,
+		Hinting: font.HintingFull,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = face.Close() })
+
+	return NewSDFBuilder(face, SDFBuilderOpt{Buffer: 3})
+}
+
+func TestGenerateAddsPadding(t *testing.T) {
+	img := image.NewAlpha(image.Rect(0, 0, 3, 3))
+	img.SetAlpha(1, 1, color.Alpha{A: 255})
+
+	bitmap, width, height := Generate(img, 2, 8, 0.25)
+	if width != 7 || height != 7 || len(bitmap) != width*height {
+		t.Fatalf("unexpected generated dimensions: %dx%d, %d bytes", width, height, len(bitmap))
+	}
+
+	center := bitmap[3+3*width]
+	corner := bitmap[0]
+	if center <= corner {
+		t.Fatalf("inside distance %d must exceed outside distance %d", center, corner)
+	}
+}
+
+func TestSDFBuilderGlyphMetadataMatchesBitmap(t *testing.T) {
+	builder := builderFor(t, "NotoSans-Regular")
+
+	glyph := builder.Glyph('A')
+	if glyph == nil {
+		t.Fatal("expected glyph A")
+	}
+	if got, want := len(glyph.Bitmap), int(glyph.Width*glyph.Height); got != want {
+		t.Fatalf("bitmap length %d does not match dimensions %d", got, want)
+	}
 }

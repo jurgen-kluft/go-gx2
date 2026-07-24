@@ -20,7 +20,7 @@ func newTTFFace(opts Options, data []byte) (font.Face, error) {
 
 	return opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    float64(opts.FontSize),
-		DPI:     float64(opts.DPI),
+		DPI:     float64(72), // Default DPI
 		Hinting: font.HintingFull,
 	})
 }
@@ -33,7 +33,7 @@ func extractFontMetrics(face font.Face) (ascent, descent, lineGap int16) {
 	return int16(a), int16(-d), int16(h - (a + d))
 }
 
-func buildGlyphTTF(face font.Face, r rune) (*builtGlyph, error) {
+func buildGlyphTTF(face font.Face, r rune, opts Options) (*builtGlyph, error) {
 	pb, advance, ok := face.GlyphBounds(r)
 	if !ok {
 		return nil, nil
@@ -65,13 +65,15 @@ func buildGlyphTTF(face font.Face, r rune) (*builtGlyph, error) {
 	bitmap := make([]byte, len(img.Pix))
 	copy(bitmap, img.Pix)
 
-	return &builtGlyph{
+	glyph := &builtGlyph{
 		Rune:     r,
 		AdvanceX: int16(fixedToInt(advance)),
 		BearingX: int16(fixedToInt(pb.Min.X)),
 		BearingY: int16(fixedToInt(-pb.Min.Y)),
-		Width:    uint16(fixedToInt(w)),
-		Height:   uint16(fixedToInt(h)),
+		Width:    uint16(img.Bounds().Dx()),
+		Height:   uint16(img.Bounds().Dy()),
 		Bitmap:   bitmap,
-	}, nil
+	}
+	applySDF(glyph, img, opts)
+	return glyph, nil
 }

@@ -12,11 +12,11 @@ func main() {
 		fmt.Println("usage: fontpack <config.json> <out.bin>")
 		os.Exit(1)
 	}
-	if err, cfg := font_pak.LoadConfig(os.Args[1]); err != nil {
+	if fontPackCfg, err := font_pak.LoadConfig(os.Args[1]); err != nil {
 		fmt.Printf("failed to load config: %v\n", err)
 		os.Exit(1)
 	} else {
-		if fontPak, err := font_pak.Build(*cfg); err != nil {
+		if fontPak, err := font_pak.Build(fontPackCfg); err != nil {
 			fmt.Printf("failed to build font pak: %v\n", err)
 			os.Exit(1)
 		} else {

@@ -92,19 +92,19 @@ Minimal example:
 
 ~~~json
 {
-	"files": [
+	"fonts": [
 		{
 			"file": "path/to/font.ttf",
 			"fonts": [
 				{
 					"name": "main16",
 					"size": 16,
-					"dpi": 72,
-					"chars": [
-						{ "ascii": "A", "glyph": "A" },
-						{ "ascii": "B", "glyph": "B" },
-						{ "ascii": " ", "glyph": " " }
-					]
+					"sdf": true,
+					"sdf_buffer": 3,
+					"sdf_radius": 8,
+					"sdf_cutoff": 0.25,
+					"chars": ["A", "B", " "],
+					"glyphs": ["A", "B", " "]
 				}
 			]
 		}

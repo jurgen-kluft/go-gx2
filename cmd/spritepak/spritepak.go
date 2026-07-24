@@ -17,10 +17,10 @@ func main() {
 	jsonPath := os.Args[1]
 	outPath := os.Args[2]
 
-	if config, err := sprite_pak.LoadConfig(jsonPath); err != nil {
+	if spritePackCfg, err := sprite_pak.LoadConfig(jsonPath); err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 		os.Exit(1)
-	} else if sprites, palettes, err := sprite_pak.Build(config); err != nil {
+	} else if sprites, palettes, err := sprite_pak.Build(spritePackCfg); err != nil {
 		fmt.Printf("Error building sprite pak: %v\n", err)
 		os.Exit(1)
 	} else {
