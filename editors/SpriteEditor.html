@@ -1,0 +1,2698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Sprite Rectangle Editor</title>
+	<style>
+		:root {
+			--bg: #11161c;
+			--panel: #1a222c;
+			--panel-2: #243141;
+			--border: #35465a;
+			--accent: #4cc9f0;
+			--accent-2: #f4a261;
+			--text: #edf2f7;
+			--muted: #9aa9bb;
+			--danger: #f25f5c;
+			--success: #65c18c;
+			--checker-a: #15202b;
+			--checker-b: #1a2734;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html, body {
+			height: 100%;
+			margin: 0;
+			font-family: "Avenir Next", "Segoe UI", sans-serif;
+			background:
+				radial-gradient(circle at top, rgba(76, 201, 240, 0.18), transparent 28%),
+				linear-gradient(180deg, #0e141a 0%, #0a1015 100%);
+			color: var(--text);
+			overflow: hidden;
+		}
+
+		body {
+			display: flex;
+			min-height: 100vh;
+			overflow: hidden;
+		}
+
+		button,
+		input,
+		select {
+			font: inherit;
+		}
+
+		button {
+			border: 1px solid var(--border);
+			background: var(--panel-2);
+			color: var(--text);
+			padding: 0.5rem 0.8rem;
+			border-radius: 0.55rem;
+			cursor: pointer;
+			transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+		}
+
+		button:hover:not(:disabled) {
+			transform: translateY(-1px);
+			border-color: var(--accent);
+		}
+
+		button:disabled {
+			cursor: not-allowed;
+			opacity: 0.45;
+		}
+
+		input[type="number"],
+		input[type="text"],
+		select {
+			width: 100%;
+			background: #0f151d;
+			color: var(--text);
+			border: 1px solid var(--border);
+			border-radius: 0.5rem;
+			padding: 0.45rem 0.55rem;
+		}
+
+		input[type="file"] {
+			width: 100%;
+			color: var(--muted);
+		}
+
+		.app {
+			display: grid;
+			grid-template-columns: minmax(300px, 360px) 1fr;
+			width: 100%;
+			height: 100vh;
+			overflow: hidden;
+		}
+
+		.sidebar {
+			border-right: 1px solid rgba(255, 255, 255, 0.08);
+			background: rgba(17, 22, 28, 0.88);
+			backdrop-filter: blur(18px);
+			padding: 1.25rem;
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+			height: 100vh;
+			overflow: auto;
+		}
+
+		.panel {
+			background: linear-gradient(180deg, rgba(36, 49, 65, 0.9), rgba(26, 34, 44, 0.9));
+			border: 1px solid rgba(255, 255, 255, 0.07);
+			border-radius: 1rem;
+			padding: 1rem;
+			box-shadow: 0 18px 36px rgba(0, 0, 0, 0.16);
+		}
+
+		.panel h1,
+		.panel h2 {
+			margin: 0 0 0.75rem;
+			font-weight: 700;
+			letter-spacing: 0.02em;
+		}
+
+		.panel h1,
+		.panel h2 {
+			cursor: pointer;
+			user-select: none;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+		}
+
+		.panel h1::after,
+		.panel h2::after {
+			content: '▾';
+			font-size: 0.72em;
+			opacity: 0.5;
+			transition: transform 180ms ease;
+			flex-shrink: 0;
+			margin-left: 0.4rem;
+		}
+
+		.panel.collapsed h1::after,
+		.panel.collapsed h2::after {
+			transform: rotate(-90deg);
+		}
+
+		.panel.collapsed > *:not(:first-child) {
+			display: none !important;
+		}
+
+		.panel.collapsed h1,
+		.panel.collapsed h2 {
+			margin-bottom: 0;
+		}
+
+		.panel h1 {
+			font-size: 1.3rem;
+		}
+
+		.panel h2 {
+			font-size: 0.95rem;
+			color: #dce7f2;
+		}
+
+		.subtle {
+			color: var(--muted);
+			font-size: 0.92rem;
+			line-height: 1.4;
+		}
+
+		.stack {
+			display: flex;
+			flex-direction: column;
+			gap: 0.8rem;
+		}
+
+		.row {
+			display: flex;
+			gap: 0.55rem;
+			align-items: center;
+		}
+
+		.row.wrap {
+			flex-wrap: wrap;
+		}
+
+		.field-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.75rem;
+		}
+
+		.field label,
+		.inline-label {
+			display: block;
+			margin-bottom: 0.35rem;
+			color: var(--muted);
+			font-size: 0.8rem;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+		}
+
+		.canvas-panel {
+			min-width: 0;
+			display: flex;
+			flex-direction: column;
+			padding: 1.25rem;
+			gap: 1rem;
+			position: relative;
+			height: 100vh;
+			overflow: hidden;
+		}
+
+		.topbar {
+			display: flex;
+			align-items: center;
+			justify-content: flex-start;
+			gap: 1rem;
+			background: rgba(17, 22, 28, 0.72);
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			border-radius: 1rem;
+			padding: 0.85rem 1rem;
+			backdrop-filter: blur(18px);
+		}
+
+		.topbar .summary {
+			min-width: 0;
+		}
+
+		.topbar strong,
+		.topbar span {
+			display: block;
+		}
+
+		.zoom-controls {
+			display: flex;
+			align-items: center;
+			gap: 0.55rem;
+			flex-wrap: nowrap;
+		}
+
+		.zoom-buttons {
+			display: flex;
+			align-items: center;
+			gap: 0.45rem;
+			flex-wrap: nowrap;
+		}
+
+		.zoom-buttons button {
+			white-space: nowrap;
+		}
+
+		.floating-zoom {
+			position: fixed;
+			top: 1rem;
+			right: 1rem;
+			width: max-content;
+			z-index: 35;
+			display: flex;
+			align-items: center;
+			gap: 0.55rem;
+			padding: 0.55rem 0.65rem;
+			border-radius: 0.8rem;
+			border: 1px solid rgba(255, 255, 255, 0.14);
+			background: rgba(10, 16, 21, 0.76);
+			backdrop-filter: blur(10px);
+			box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+		}
+
+		.workspace {
+			position: relative;
+			flex: 1;
+			min-height: 0;
+			background:
+				linear-gradient(45deg, var(--checker-a) 25%, transparent 25%),
+				linear-gradient(-45deg, var(--checker-a) 25%, transparent 25%),
+				linear-gradient(45deg, transparent 75%, var(--checker-a) 75%),
+				linear-gradient(-45deg, transparent 75%, var(--checker-a) 75%),
+				var(--checker-b);
+			background-size: 28px 28px;
+			background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			border-radius: 1rem;
+			overflow: hidden;
+			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+		}
+
+		.workspace.drop-target {
+			box-shadow: inset 0 0 0 2px rgba(76, 201, 240, 0.8), 0 0 0 1px rgba(76, 201, 240, 0.25);
+		}
+
+		.canvas-stage {
+			position: relative;
+			width: 100%;
+			height: 100%;
+			padding: 0;
+			display: block;
+		}
+
+		canvas {
+			display: block;
+			image-rendering: pixelated;
+			image-rendering: crisp-edges;
+			width: 100%;
+			height: 100%;
+			outline: none;
+		}
+
+		.sprite-list {
+			margin: 0;
+			padding: 0;
+			list-style: none;
+			max-height: 220px;
+			overflow: auto;
+			display: flex;
+			flex-direction: column;
+			gap: 0.35rem;
+		}
+
+		.sprite-item {
+			border: 1px solid transparent;
+			border-radius: 0.7rem;
+			padding: 0.55rem 0.65rem;
+			background: rgba(15, 21, 29, 0.85);
+			cursor: pointer;
+			transition: border-color 120ms ease, background 120ms ease;
+		}
+
+		.sprite-item:hover {
+			border-color: rgba(76, 201, 240, 0.45);
+		}
+
+		.sprite-item.active {
+			border-color: var(--accent);
+			background: rgba(76, 201, 240, 0.12);
+		}
+
+		.sprite-item.reference {
+			border-color: rgba(101, 193, 140, 0.5);
+			background: rgba(101, 193, 140, 0.12);
+		}
+
+		.sprite-item strong,
+		.sprite-item span {
+			display: block;
+		}
+
+		.status {
+			min-height: 1.5rem;
+			color: var(--muted);
+			font-size: 0.92rem;
+		}
+
+		.status.error {
+			color: #ff9f9d;
+		}
+
+		.status.success {
+			color: #89d8a7;
+		}
+
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.35rem;
+			padding: 0.25rem 0.5rem;
+			border-radius: 999px;
+			background: rgba(76, 201, 240, 0.12);
+			color: #cfeefa;
+			font-size: 0.78rem;
+			border: 1px solid rgba(76, 201, 240, 0.18);
+		}
+
+		.hint-list {
+			margin: 0;
+			padding-left: 1rem;
+			color: var(--muted);
+			line-height: 1.5;
+			font-size: 0.9rem;
+		}
+
+		.grid-inline {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.6rem;
+		}
+
+		.hidden {
+			display: none;
+		}
+
+		#spriteTooltip {
+			position: fixed;
+			z-index: 100;
+			pointer-events: none;
+			display: none;
+			padding: 0.5rem 0.7rem;
+			background: rgba(10, 16, 22, 0.92);
+			border: 1px solid rgba(76, 201, 240, 0.45);
+			border-radius: 0.55rem;
+			font-size: 0.82rem;
+			line-height: 1.55;
+			color: var(--text);
+			backdrop-filter: blur(6px);
+			box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+			max-width: 240px;
+			white-space: nowrap;
+		}
+
+		#spriteTooltip strong {
+			display: block;
+			color: var(--accent);
+			margin-bottom: 0.2rem;
+		}
+
+		#spriteTooltip span {
+			display: block;
+			color: var(--muted);
+		}
+
+		@media (max-width: 980px) {
+			.app {
+				grid-template-columns: 1fr;
+			}
+
+			.sidebar {
+				border-right: 0;
+				border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+			}
+
+			.canvas-panel {
+				min-height: 55vh;
+			}
+
+			.floating-zoom {
+				top: auto;
+				bottom: 1rem;
+				right: 1rem;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="app">
+		<aside class="sidebar">
+			<section class="panel stack">
+				<div>
+					<h1>Sprite Rectangle Editor</h1>
+					<p class="subtle">Load a PNG or JPG, draw rectangles, edit them precisely, and save the sprite list as JSON.</p>
+				</div>
+				<div class="stack">
+					<div class="field">
+						<label class="inline-label" for="imageInput">Image file</label>
+						<input id="imageInput" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg">
+					</div>
+					<div class="field">
+						<label class="inline-label" for="jsonInput">Sprite list JSON</label>
+						<input id="jsonInput" type="file" accept="application/json,.json">
+				</div>
+				<div class="field">
+					<label class="inline-label" for="indexMapInput">Index map JSON</label>
+					<input id="indexMapInput" type="file" accept="application/json,.json">
+					</div>
+					<div class="row wrap">
+						<button id="exportButton" type="button" disabled>Save JSON</button>
+						<button id="copyButton" type="button" disabled>Copy</button>
+						<button id="pasteButton" type="button" disabled>Paste</button>
+						<button id="deleteButton" type="button" disabled>Delete</button>
+					</div>
+					<div class="status" id="statusMessage">Load an image to begin.</div>
+				</div>
+			</section>
+
+			<section class="panel stack collapsed">
+				<div class="row" style="justify-content: space-between;">
+					<h2>Sprites</h2>
+					<span class="pill" id="spriteCount">0 sprites</span>
+				</div>
+				<ul class="sprite-list" id="spriteList"></ul>
+			</section>
+
+			<section class="panel stack collapsed">
+				<h2>Selected Sprite</h2>
+				<div class="field">
+					<label class="inline-label" for="spriteName">Name</label>
+					<input id="spriteName" type="text" placeholder="sprite_001" disabled>
+				</div>
+				<div class="field">
+					<label class="inline-label" for="spriteIndex">Index</label>
+					<input id="spriteIndex" type="number" min="0" step="1" placeholder="(unassigned)" disabled>
+				</div>
+				<div class="field-grid">
+					<div class="field">
+						<label for="spriteX">X</label>
+						<input id="spriteX" type="number" step="1" disabled>
+					</div>
+					<div class="field">
+						<label for="spriteY">Y</label>
+						<input id="spriteY" type="number" step="1" disabled>
+					</div>
+					<div class="field">
+						<label for="spriteWidth">Width</label>
+						<input id="spriteWidth" type="number" min="1" step="1" disabled>
+					</div>
+					<div class="field">
+						<label for="spriteHeight">Height</label>
+						<input id="spriteHeight" type="number" min="1" step="1" disabled>
+					</div>
+				</div>
+			</section>
+
+			<section class="panel stack collapsed">
+				<h2>Controls</h2>
+				<ul class="hint-list">
+					<li>Drag on empty space to create a new rectangle.</li>
+					<li>Click a rectangle to select it. Drag inside it to move.</li>
+					<li>Ctrl/Cmd-click adds up to 3 ordered selections: main, right reference, down reference.</li>
+					<li>Drag the highlighted handles to resize with the mouse.</li>
+					<li>Arrow keys move by 1 pixel.</li>
+					<li>Shift + Arrow extends the side in that direction by 1 pixel.</li>
+					<li>Press E with exactly 3 ordered selections to expand a sprite grid.</li>
+					<li>Copy/Paste works from buttons or Ctrl/Cmd + C and Ctrl/Cmd + V.</li>
+					<li>Delete or Backspace removes the selected rectangle.</li>
+					<li>Use zoom controls or Alt + mouse wheel for close editing.</li>
+			</ul>
+			</section>
+
+			<section class="panel stack collapsed">
+				<h2>Grid Tool</h2>
+				<p class="subtle">Create an adjustable grid and drag each row/column line directly on the image.</p>
+				<div class="grid-inline">
+					<div class="field">
+						<label for="gridRows">Rows</label>
+						<input id="gridRows" type="number" min="1" step="1" value="4">
+					</div>
+					<div class="field">
+						<label for="gridCols">Columns</label>
+						<input id="gridCols" type="number" min="1" step="1" value="4">
+					</div>
+					<div class="field">
+						<label for="gridCellWidth">Cell Width</label>
+						<input id="gridCellWidth" type="number" min="0.01" step="0.01" placeholder="auto">
+					</div>
+					<div class="field">
+						<label for="gridCellHeight">Cell Height</label>
+						<input id="gridCellHeight" type="number" min="0.01" step="0.01" placeholder="auto">
+					</div>
+				</div>
+				<div class="row wrap">
+					<button id="createGridButton" type="button" disabled>Create Grid</button>
+					<button id="selectGridAreaButton" type="button" disabled>Select Grid Area</button>
+					<button id="toggleGridEditButton" type="button" disabled>Grid Edit: Off</button>
+					<button id="extractGridButton" type="button" disabled>Extract Sprites</button>
+					<button id="clearGridButton" type="button" disabled>Clear Grid</button>
+				</div>
+				<p class="subtle">Tip: choose rows/columns, click Select Grid Area, drag an area, then adjust lines if needed.</p>
+			</section>
+		</aside>
+
+		<main class="canvas-panel">
+			<div class="topbar">
+				<div class="summary">
+					<strong id="imageSummary">No image loaded</strong>
+					<span class="subtle" id="selectionSummary">No sprite selected</span>
+				</div>
+			</div>
+
+			<div class="floating-zoom">
+				<select id="zoomSelect" aria-label="Zoom level">
+					<option value="0.5">50%</option>
+					<option value="1" selected>100%</option>
+					<option value="2">200%</option>
+					<option value="4">400%</option>
+					<option value="8">800%</option>
+				</select>
+				<div class="zoom-buttons">
+					<button id="zoomOutButton" type="button">-</button>
+					<button id="zoomInButton" type="button">+</button>
+					<button id="fitButton" type="button">Reset View</button>
+					<button id="logButton" type="button">Log</button>
+				</div>
+			</div>
+			<div class="workspace" id="workspace">
+				<div class="canvas-stage">
+					<canvas id="editorCanvas" width="960" height="640" tabindex="0" aria-label="Sprite editor canvas"></canvas>
+				</div>
+			</div>
+
+			<div id="logPanel" style="display: none; flex: 1; min-height: 0; border: 1px solid rgba(255,255,255,0.08); border-radius: 1rem; background: rgba(17,22,28,0.88); padding: 1rem; overflow-y: auto; font-size: 0.85rem;">
+				<ul id="logList" style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.35rem;"></ul>
+			</div>
+		</main>
+	</div>
+
+	<div id="spriteTooltip"></div>
+	<script>
+		(() => {
+			const ZOOM_LEVELS = [0.5, 1, 2, 4, 8];
+			const MIN_SIZE = 1;
+			const PASTE_OFFSET = 4;
+			const HANDLE_SIZE = 10;
+			const CREATE_DRAG_THRESHOLD = 3;
+			const GRID_LINE_HIT_DISTANCE = 6;
+
+			const state = {
+				image: null,
+				imageName: '',
+				imagePath: '',
+				imageDataUrl: '',
+				zoom: 1,
+				panX: 0,
+				panY: 0,
+				isSpaceHeld: false,
+				sprites: [],
+				selectedId: null,
+				selectedIds: [],
+				clipboard: null,
+				nextId: 1,
+				isDirty: false,
+				interaction: null,
+				log: [],
+				logPanelOpen: false,
+				grid: {
+					enabled: false,
+					editMode: false,
+					awaitingAreaPick: false,
+					xLines: [],
+					yLines: [],
+					dragging: null,
+				},
+			};
+
+			const elements = {
+				imageInput: document.getElementById('imageInput'),
+				jsonInput: document.getElementById('jsonInput'),
+				exportButton: document.getElementById('exportButton'),
+				copyButton: document.getElementById('copyButton'),
+				pasteButton: document.getElementById('pasteButton'),
+				deleteButton: document.getElementById('deleteButton'),
+				logButton: document.getElementById('logButton'),
+				indexMapInput: document.getElementById('indexMapInput'),
+				logPanel: document.getElementById('logPanel'),
+				logList: document.getElementById('logList'),
+				spriteList: document.getElementById('spriteList'),
+				spriteCount: document.getElementById('spriteCount'),
+				spriteName: document.getElementById('spriteName'),
+				spriteIndex: document.getElementById('spriteIndex'),
+				spriteX: document.getElementById('spriteX'),
+				spriteY: document.getElementById('spriteY'),
+				spriteWidth: document.getElementById('spriteWidth'),
+				spriteHeight: document.getElementById('spriteHeight'),
+				statusMessage: document.getElementById('statusMessage'),
+				imageSummary: document.getElementById('imageSummary'),
+				selectionSummary: document.getElementById('selectionSummary'),
+				zoomSelect: document.getElementById('zoomSelect'),
+				zoomInButton: document.getElementById('zoomInButton'),
+				zoomOutButton: document.getElementById('zoomOutButton'),
+				fitButton: document.getElementById('fitButton'),
+				gridRows: document.getElementById('gridRows'),
+				gridCols: document.getElementById('gridCols'),
+				gridCellWidth: document.getElementById('gridCellWidth'),
+				gridCellHeight: document.getElementById('gridCellHeight'),
+				createGridButton: document.getElementById('createGridButton'),
+				selectGridAreaButton: document.getElementById('selectGridAreaButton'),
+				toggleGridEditButton: document.getElementById('toggleGridEditButton'),
+				extractGridButton: document.getElementById('extractGridButton'),
+				clearGridButton: document.getElementById('clearGridButton'),
+				canvas: document.getElementById('editorCanvas'),
+				workspace: document.getElementById('workspace'),
+			};
+
+			const context = elements.canvas.getContext('2d');
+
+			function spriteFileName() {
+				const base = state.imageName ? state.imageName.replace(/\.[^.]+$/, '') : 'sprites';
+				return `${base}.sprites.json`;
+			}
+
+			function setStatus(message, tone = 'neutral') {
+				elements.statusMessage.textContent = message;
+				elements.statusMessage.className = `status${tone === 'neutral' ? '' : ` ${tone}`}`;
+			}
+
+			function clamp(value, min, max) {
+				return Math.min(max, Math.max(min, value));
+			}
+
+			function roundPixel(value) {
+				return Math.round(value);
+			}
+
+			function getSelectedSprite() {
+				return state.sprites.find((sprite) => sprite.id === state.selectedId) || null;
+			}
+
+			function getSelectedSprites() {
+				return state.selectedIds
+					.map((id) => state.sprites.find((sprite) => sprite.id === id) || null)
+					.filter(Boolean);
+			}
+
+			function isSpriteSelected(id) {
+				return state.selectedIds.includes(id);
+			}
+
+			function selectionRoleForSprite(id) {
+				const index = state.selectedIds.indexOf(id);
+				if (index === 0) {
+					return 'Main';
+				}
+				if (index === 1) {
+					return 'Right ref';
+				}
+				if (index === 2) {
+					return 'Down ref';
+				}
+				return '';
+			}
+
+			function syncPrimarySelection() {
+				state.selectedIds = state.selectedIds.filter((id, index, values) => values.indexOf(id) === index);
+				state.selectedIds = state.selectedIds.filter((id) => state.sprites.some((sprite) => sprite.id === id)).slice(0, 3);
+				state.selectedId = state.selectedIds[0] ?? null;
+			}
+
+			function nextSpriteName() {
+				return `sprite_${String(state.nextId).padStart(3, '0')}`;
+			}
+
+			function markDirty() {
+				state.isDirty = true;
+				updateSummary();
+			}
+
+			function clearDirty() {
+				state.isDirty = false;
+				updateSummary();
+			}
+
+			function normalizeRect(rect) {
+				const x1 = Math.min(rect.x, rect.x + rect.width);
+				const y1 = Math.min(rect.y, rect.y + rect.height);
+				const x2 = Math.max(rect.x, rect.x + rect.width);
+				const y2 = Math.max(rect.y, rect.y + rect.height);
+				return {
+					x: roundPixel(x1),
+					y: roundPixel(y1),
+					width: Math.max(MIN_SIZE, roundPixel(x2 - x1)),
+					height: Math.max(MIN_SIZE, roundPixel(y2 - y1)),
+				};
+			}
+
+			function keepSpriteInBounds(sprite) {
+				if (!state.image) {
+					return;
+				}
+				sprite.width = clamp(roundPixel(sprite.width), MIN_SIZE, state.image.width);
+				sprite.height = clamp(roundPixel(sprite.height), MIN_SIZE, state.image.height);
+				sprite.x = clamp(roundPixel(sprite.x), 0, state.image.width - sprite.width);
+				sprite.y = clamp(roundPixel(sprite.y), 0, state.image.height - sprite.height);
+			}
+
+			function updateCanvasSize() {
+				const w = elements.workspace.clientWidth || 960;
+				const h = elements.workspace.clientHeight || 640;
+				if (elements.canvas.width !== w || elements.canvas.height !== h) {
+					elements.canvas.width = w;
+					elements.canvas.height = h;
+				}
+			}
+
+			function updateSummary() {
+				if (!state.image) {
+					elements.imageSummary.textContent = 'No image loaded';
+				} else {
+					const dirtySuffix = state.isDirty ? ' • unsaved changes' : '';
+					elements.imageSummary.textContent = `${state.imageName} • ${state.image.width}×${state.image.height}${dirtySuffix}`;
+				}
+
+				const selected = getSelectedSprite();
+				if (state.selectedIds.length > 1 && selected) {
+					elements.selectionSummary.textContent = `${state.selectedIds.length} selected • Main: ${selected.name} • Press E to expand grid`;
+					return;
+				}
+
+				elements.selectionSummary.textContent = selected
+					? `${selected.name} • x:${selected.x} y:${selected.y} w:${selected.width} h:${selected.height}`
+					: 'No sprite selected';
+			}
+
+			function updateSpriteList() {
+				elements.spriteList.textContent = '';
+				for (const sprite of state.sprites) {
+					const item = document.createElement('li');
+					const role = selectionRoleForSprite(sprite.id);
+					const isPrimary = sprite.id === state.selectedId;
+					const isReference = !isPrimary && isSpriteSelected(sprite.id);
+					item.className = `sprite-item${isPrimary ? ' active' : ''}${isReference ? ' reference' : ''}`;
+					item.dataset.spriteId = String(sprite.id);
+
+					const title = document.createElement('strong');
+					const indexBadge = sprite.index !== null && sprite.index !== -1 ? `[${sprite.index}] ` : '';
+					title.textContent = indexBadge + (role ? `${role}: ${sprite.name}` : sprite.name);
+					const details = document.createElement('span');
+					details.className = 'subtle';
+					details.textContent = `x:${sprite.x} y:${sprite.y} w:${sprite.width} h:${sprite.height}`;
+
+					item.append(title, details);
+					item.addEventListener('click', (event) => {
+						selectSprite(sprite.id, event.metaKey || event.ctrlKey || event.shiftKey);
+						elements.canvas.focus();
+					});
+					elements.spriteList.append(item);
+				}
+				elements.spriteCount.textContent = `${state.sprites.length} sprite${state.sprites.length === 1 ? '' : 's'}`;
+			}
+
+			function updateInspector() {
+				const selected = getSelectedSprite();
+				const enabled = Boolean(selected);
+				for (const element of [
+					elements.spriteName,
+					elements.spriteIndex,
+					elements.spriteX,
+					elements.spriteY,
+					elements.spriteWidth,
+					elements.spriteHeight,
+					elements.copyButton,
+					elements.deleteButton,
+				]) {
+					element.disabled = !enabled;
+				}
+
+				elements.pasteButton.disabled = !state.clipboard;
+				elements.exportButton.disabled = !state.image;
+
+				if (!selected) {
+					elements.spriteName.value = '';
+					elements.spriteIndex.value = '';
+					elements.spriteX.value = '';
+					elements.spriteY.value = '';
+					elements.spriteWidth.value = '';
+					elements.spriteHeight.value = '';
+					updateSummary();
+					return;
+				}
+
+				elements.spriteName.value = selected.name;
+				elements.spriteIndex.value = selected.index !== null && selected.index !== -1 ? String(selected.index) : '';
+				elements.spriteX.value = String(selected.x);
+				elements.spriteY.value = String(selected.y);
+				elements.spriteWidth.value = String(selected.width);
+				elements.spriteHeight.value = String(selected.height);
+				updateSummary();
+			}
+
+			function selectSprite(id, additive = false) {
+				if (additive) {
+					if (isSpriteSelected(id)) {
+						state.selectedIds = state.selectedIds.filter((selectedId) => selectedId !== id);
+					} else {
+						if (state.selectedIds.length >= 3) {
+							setStatus('Grid expansion uses up to 3 ordered selections: main, right reference, down reference.', 'error');
+							return;
+						}
+						state.selectedIds.push(id);
+					}
+				} else {
+					state.selectedIds = [id];
+				}
+				syncPrimarySelection();
+				updateSpriteList();
+				updateInspector();
+				render();
+			}
+
+			function clearSelection() {
+				state.selectedIds = [];
+				syncPrimarySelection();
+				updateSpriteList();
+				updateInspector();
+				render();
+			}
+
+			function updateGridButtons() {
+				const hasImage = Boolean(state.image);
+				const hasGrid = state.grid.enabled && state.grid.xLines.length > 1 && state.grid.yLines.length > 1;
+				elements.createGridButton.disabled = !hasImage;
+				elements.selectGridAreaButton.disabled = !hasImage;
+				elements.extractGridButton.disabled = !hasGrid;
+				elements.clearGridButton.disabled = !hasGrid;
+				elements.toggleGridEditButton.disabled = !hasGrid;
+				elements.toggleGridEditButton.textContent = `Grid Edit: ${state.grid.editMode ? 'On' : 'Off'}`;
+				elements.selectGridAreaButton.textContent = state.grid.awaitingAreaPick ? 'Selecting Area...' : 'Select Grid Area';
+			}
+
+			function createUniformLines(start, size, count, maxLimit) {
+				const lines = [];
+				const clampedCount = Math.max(1, count);
+				for (let index = 0; index <= clampedCount; index += 1) {
+					const ratio = index / clampedCount;
+					lines.push(clamp(roundPixel(start + (size * ratio)), 0, maxLimit));
+				}
+				for (let index = 1; index < lines.length; index += 1) {
+					if (lines[index] <= lines[index - 1]) {
+						lines[index] = lines[index - 1] + 1;
+					}
+				}
+				lines[lines.length - 1] = clamp(lines[lines.length - 1], lines[lines.length - 2] + 1, maxLimit);
+				return lines;
+			}
+
+			function createFixedCellLines(start, count, cellSize, maxLimit) {
+				const lines = [];
+				for (let index = 0; index <= count; index += 1) {
+					lines.push(clamp(roundPixel(start + (index * cellSize)), 0, maxLimit));
+				}
+				for (let index = 1; index < lines.length; index += 1) {
+					if (lines[index] <= lines[index - 1]) {
+						lines[index] = lines[index - 1] + 1;
+					}
+				}
+				lines[lines.length - 1] = clamp(lines[lines.length - 1], lines[lines.length - 2] + 1, maxLimit);
+				return lines;
+			}
+
+			function createGridFromSelectionOrImage() {
+				if (!state.image) {
+					return;
+				}
+
+				const rows = Math.max(1, Number.parseInt(elements.gridRows.value, 10) || 1);
+				const cols = Math.max(1, Number.parseInt(elements.gridCols.value, 10) || 1);
+				const cellWidth = Math.max(0, Number.parseFloat(elements.gridCellWidth.value) || 0);
+				const cellHeight = Math.max(0, Number.parseFloat(elements.gridCellHeight.value) || 0);
+				elements.gridRows.value = String(rows);
+				elements.gridCols.value = String(cols);
+
+				const selected = getSelectedSprite();
+				const baseX = selected ? selected.x : 0;
+				const baseY = selected ? selected.y : 0;
+				const spanWidth = selected ? selected.width : state.image.width;
+				const spanHeight = selected ? selected.height : state.image.height;
+
+				state.grid.xLines = cellWidth > 0
+					? createFixedCellLines(baseX, cols, cellWidth, state.image.width)
+					: createUniformLines(baseX, spanWidth, cols, state.image.width);
+				state.grid.yLines = cellHeight > 0
+					? createFixedCellLines(baseY, rows, cellHeight, state.image.height)
+					: createUniformLines(baseY, spanHeight, rows, state.image.height);
+				state.grid.enabled = true;
+				state.grid.editMode = true;
+				state.grid.awaitingAreaPick = false;
+				state.grid.dragging = null;
+				updateGridButtons();
+				render();
+				if (cellWidth > 0 || cellHeight > 0) {
+					setStatus('Grid created using specified cell size. Drag lines to fine-tune boundaries.', 'success');
+					return;
+				}
+				setStatus('Grid created. Drag grid lines to mold row and column boundaries.', 'success');
+			}
+
+			function clearGrid() {
+				state.grid.enabled = false;
+				state.grid.editMode = false;
+				state.grid.awaitingAreaPick = false;
+				state.grid.xLines = [];
+				state.grid.yLines = [];
+				state.grid.dragging = null;
+				updateGridButtons();
+				render();
+				setStatus('Grid cleared.', 'success');
+			}
+
+			function startGridAreaPick() {
+				if (!state.image) {
+					return;
+				}
+				state.grid.awaitingAreaPick = true;
+				state.grid.dragging = null;
+				state.interaction = null;
+				updateGridButtons();
+				render();
+				setStatus('Drag on the image to define the grid area.', 'success');
+			}
+
+			function applyGridFromArea(areaRect) {
+				if (!state.image) {
+					return;
+				}
+				const rows = Math.max(1, Number.parseInt(elements.gridRows.value, 10) || 1);
+				const cols = Math.max(1, Number.parseInt(elements.gridCols.value, 10) || 1);
+				elements.gridRows.value = String(rows);
+				elements.gridCols.value = String(cols);
+
+				const cellWidth = areaRect.width / cols;
+				const cellHeight = areaRect.height / rows;
+				elements.gridCellWidth.value = cellWidth.toFixed(2);
+				elements.gridCellHeight.value = cellHeight.toFixed(2);
+
+				state.grid.xLines = createUniformLines(areaRect.x, areaRect.width, cols, state.image.width);
+				state.grid.yLines = createUniformLines(areaRect.y, areaRect.height, rows, state.image.height);
+				state.grid.enabled = true;
+				state.grid.editMode = true;
+				state.grid.awaitingAreaPick = false;
+				state.grid.dragging = null;
+				updateGridButtons();
+				render();
+				setStatus('Grid created from selected area. Cell size fields were auto-updated.', 'success');
+			}
+
+			function drawGridOverlay() {
+				if (!state.grid.enabled || state.grid.xLines.length < 2 || state.grid.yLines.length < 2) {
+					return;
+				}
+
+				const top = state.grid.yLines[0];
+				const bottom = state.grid.yLines[state.grid.yLines.length - 1];
+				const left = state.grid.xLines[0];
+				const right = state.grid.xLines[state.grid.xLines.length - 1];
+
+				context.save();
+				context.lineWidth = 1 / state.zoom;
+				context.strokeStyle = 'rgba(76, 201, 240, 0.95)';
+				context.fillStyle = 'rgba(76, 201, 240, 0.12)';
+				context.fillRect(left, top, right - left, bottom - top);
+
+				for (let xIndex = 0; xIndex < state.grid.xLines.length; xIndex += 1) {
+					const x = state.grid.xLines[xIndex];
+					context.beginPath();
+					context.moveTo(x, top);
+					context.lineTo(x, bottom);
+					context.stroke();
+				}
+
+				for (let yIndex = 0; yIndex < state.grid.yLines.length; yIndex += 1) {
+					const y = state.grid.yLines[yIndex];
+					context.beginPath();
+					context.moveTo(left, y);
+					context.lineTo(right, y);
+					context.stroke();
+				}
+
+				if (state.grid.editMode) {
+					context.fillStyle = '#4cc9f0';
+					const markerSize = 4 / state.zoom;
+					for (const x of state.grid.xLines) {
+						context.fillRect(x - markerSize, top - markerSize, markerSize * 2, markerSize * 2);
+					}
+					for (const y of state.grid.yLines) {
+						context.fillRect(left - markerSize, y - markerSize, markerSize * 2, markerSize * 2);
+					}
+				}
+
+				context.restore();
+			}
+
+			function drawGridAreaPickOverlay() {
+				if (!state.interaction || state.interaction.type !== 'gridAreaSelect') {
+					return;
+				}
+
+				const normalized = normalizeRect({
+					x: state.interaction.startX,
+					y: state.interaction.startY,
+					width: state.interaction.currentX - state.interaction.startX,
+					height: state.interaction.currentY - state.interaction.startY,
+				});
+
+				context.save();
+				context.translate(state.panX, state.panY);
+				context.scale(state.zoom, state.zoom);
+				context.fillStyle = 'rgba(76, 201, 240, 0.22)';
+				context.strokeStyle = 'rgba(76, 201, 240, 1)';
+				context.lineWidth = 1 / state.zoom;
+				context.setLineDash([5 / state.zoom, 5 / state.zoom]);
+				context.fillRect(normalized.x, normalized.y, normalized.width, normalized.height);
+				context.strokeRect(normalized.x, normalized.y, normalized.width, normalized.height);
+				context.restore();
+			}
+
+			function findGridLineHit(point) {
+				if (!state.grid.enabled || !state.grid.editMode) {
+					return null;
+				}
+				const xLines = state.grid.xLines;
+				const yLines = state.grid.yLines;
+				if (xLines.length < 2 || yLines.length < 2) {
+					return null;
+				}
+
+				const top = yLines[0];
+				const bottom = yLines[yLines.length - 1];
+				const left = xLines[0];
+				const right = xLines[xLines.length - 1];
+				const distance = GRID_LINE_HIT_DISTANCE / state.zoom;
+
+				let bestHit = null;
+				let bestDistance = Infinity;
+
+				if (point.y >= top - distance && point.y <= bottom + distance) {
+					for (let index = 0; index < xLines.length; index += 1) {
+						const lineDistance = Math.abs(point.x - xLines[index]);
+						if (lineDistance <= distance && lineDistance < bestDistance) {
+							bestDistance = lineDistance;
+							bestHit = { axis: 'x', index };
+						}
+					}
+				}
+
+				if (point.x >= left - distance && point.x <= right + distance) {
+					for (let index = 0; index < yLines.length; index += 1) {
+						const lineDistance = Math.abs(point.y - yLines[index]);
+						if (lineDistance <= distance && lineDistance < bestDistance) {
+							bestDistance = lineDistance;
+							bestHit = { axis: 'y', index };
+						}
+					}
+				}
+
+				return bestHit;
+			}
+
+			function dragGridLine(point) {
+				if (!state.grid.dragging || !state.image) {
+					return;
+				}
+				const { axis, index } = state.grid.dragging;
+				if (axis === 'x') {
+					const min = index > 0 ? state.grid.xLines[index - 1] + 1 : 0;
+					const max = index < state.grid.xLines.length - 1 ? state.grid.xLines[index + 1] - 1 : state.image.width;
+					state.grid.xLines[index] = clamp(roundPixel(point.x), min, max);
+				} else {
+					const min = index > 0 ? state.grid.yLines[index - 1] + 1 : 0;
+					const max = index < state.grid.yLines.length - 1 ? state.grid.yLines[index + 1] - 1 : state.image.height;
+					state.grid.yLines[index] = clamp(roundPixel(point.y), min, max);
+				}
+				render();
+			}
+
+			function moveWholeGridBy(dx, dy) {
+				if (!state.image || !state.grid.enabled || state.grid.xLines.length < 2 || state.grid.yLines.length < 2) {
+					return false;
+				}
+
+				const minX = state.grid.xLines[0];
+				const maxX = state.grid.xLines[state.grid.xLines.length - 1];
+				const minY = state.grid.yLines[0];
+				const maxY = state.grid.yLines[state.grid.yLines.length - 1];
+
+				const clampedDx = clamp(dx, -minX, state.image.width - maxX);
+				const clampedDy = clamp(dy, -minY, state.image.height - maxY);
+
+				if (clampedDx === 0 && clampedDy === 0) {
+					return false;
+				}
+
+				state.grid.xLines = state.grid.xLines.map((x) => x + clampedDx);
+				state.grid.yLines = state.grid.yLines.map((y) => y + clampedDy);
+				render();
+				return true;
+			}
+
+			function colorDistance(colorA, colorB) {
+				const dr = colorA.r - colorB.r;
+				const dg = colorA.g - colorB.g;
+				const db = colorA.b - colorB.b;
+				return Math.sqrt((dr * dr) + (dg * dg) + (db * db));
+			}
+
+			function readPixelColor(pixels, imageWidth, x, y) {
+				const offset = ((y * imageWidth) + x) * 4;
+				return {
+					r: pixels[offset],
+					g: pixels[offset + 1],
+					b: pixels[offset + 2],
+					a: pixels[offset + 3],
+				};
+			}
+
+			function detectCellBounds(pixels, imageWidth, cellLeft, cellTop, cellRight, cellBottom) {
+				const totalPixels = Math.max(1, (cellRight - cellLeft) * (cellBottom - cellTop));
+				let alphaMinX = cellRight;
+				let alphaMinY = cellBottom;
+				let alphaMaxX = cellLeft - 1;
+				let alphaMaxY = cellTop - 1;
+				let transparentCount = 0;
+
+				for (let y = cellTop; y < cellBottom; y += 1) {
+					for (let x = cellLeft; x < cellRight; x += 1) {
+						const offset = (y * imageWidth + x) * 4;
+						const alpha = pixels[offset + 3];
+						if (alpha <= 16) {
+							transparentCount += 1;
+							continue;
+						}
+						if (x < alphaMinX) {
+							alphaMinX = x;
+						}
+						if (y < alphaMinY) {
+							alphaMinY = y;
+						}
+						if (x > alphaMaxX) {
+							alphaMaxX = x;
+						}
+						if (y > alphaMaxY) {
+							alphaMaxY = y;
+						}
+					}
+				}
+
+				const hasAlphaBounds = alphaMaxX >= alphaMinX && alphaMaxY >= alphaMinY;
+				const transparencyRatio = transparentCount / totalPixels;
+				if (hasAlphaBounds && transparencyRatio > 0.01) {
+					return {
+						x: alphaMinX,
+						y: alphaMinY,
+						width: (alphaMaxX - alphaMinX) + 1,
+						height: (alphaMaxY - alphaMinY) + 1,
+					};
+				}
+
+				const corners = [
+					readPixelColor(pixels, imageWidth, cellLeft, cellTop),
+					readPixelColor(pixels, imageWidth, cellRight - 1, cellTop),
+					readPixelColor(pixels, imageWidth, cellLeft, cellBottom - 1),
+					readPixelColor(pixels, imageWidth, cellRight - 1, cellBottom - 1),
+				];
+
+				const bgMean = {
+					r: (corners[0].r + corners[1].r + corners[2].r + corners[3].r) / 4,
+					g: (corners[0].g + corners[1].g + corners[2].g + corners[3].g) / 4,
+					b: (corners[0].b + corners[1].b + corners[2].b + corners[3].b) / 4,
+				};
+
+				const cornerSpread = (
+					colorDistance(corners[0], bgMean) +
+					colorDistance(corners[1], bgMean) +
+					colorDistance(corners[2], bgMean) +
+					colorDistance(corners[3], bgMean)
+				) / 4;
+				const contrastThreshold = Math.max(18, cornerSpread + 10);
+
+				let minX = cellRight;
+				let minY = cellBottom;
+				let maxX = cellLeft - 1;
+				let maxY = cellTop - 1;
+
+				for (let y = cellTop; y < cellBottom; y += 1) {
+					for (let x = cellLeft; x < cellRight; x += 1) {
+						const color = readPixelColor(pixels, imageWidth, x, y);
+						if (color.a <= 8) {
+							continue;
+						}
+
+						const distanceToBg = colorDistance(color, bgMean);
+						if (distanceToBg <= contrastThreshold) {
+							continue;
+						}
+
+						if (x < minX) {
+							minX = x;
+						}
+						if (y < minY) {
+							minY = y;
+						}
+						if (x > maxX) {
+							maxX = x;
+						}
+						if (y > maxY) {
+							maxY = y;
+						}
+					}
+				}
+
+				if (maxX >= minX && maxY >= minY) {
+					return {
+						x: minX,
+						y: minY,
+						width: (maxX - minX) + 1,
+						height: (maxY - minY) + 1,
+					};
+				}
+
+				if (hasAlphaBounds) {
+					return {
+						x: alphaMinX,
+						y: alphaMinY,
+						width: (alphaMaxX - alphaMinX) + 1,
+						height: (alphaMaxY - alphaMinY) + 1,
+					};
+				}
+
+				return null;
+			}
+
+			function extractSpritesFromGrid() {
+				if (!state.image || !state.grid.enabled || state.grid.xLines.length < 2 || state.grid.yLines.length < 2) {
+					setStatus('Create a grid first.', 'error');
+					return;
+				}
+
+				const offscreenCanvas = document.createElement('canvas');
+				offscreenCanvas.width = state.image.width;
+				offscreenCanvas.height = state.image.height;
+				const offscreenContext = offscreenCanvas.getContext('2d');
+				offscreenContext.drawImage(state.image, 0, 0);
+				const pixels = offscreenContext.getImageData(0, 0, state.image.width, state.image.height).data;
+
+				const created = [];
+				let skipped = 0;
+				const existing = new Set(state.sprites.map((sprite) => `${sprite.x}:${sprite.y}:${sprite.width}:${sprite.height}`));
+
+				for (let row = 0; row < state.grid.yLines.length - 1; row += 1) {
+					for (let col = 0; col < state.grid.xLines.length - 1; col += 1) {
+						const cellLeft = state.grid.xLines[col];
+						const cellRight = state.grid.xLines[col + 1];
+						const cellTop = state.grid.yLines[row];
+						const cellBottom = state.grid.yLines[row + 1];
+						const rect = detectCellBounds(pixels, state.image.width, cellLeft, cellTop, cellRight, cellBottom);
+						if (!rect) {
+							skipped += 1;
+							continue;
+						}
+						const key = `${rect.x}:${rect.y}:${rect.width}:${rect.height}`;
+						if (existing.has(key)) {
+							continue;
+						}
+
+						const sprite = {
+							id: state.nextId,
+							name: `sprite_r${row + 1}_c${col + 1}`,
+							...rect,
+						};
+						state.nextId += 1;
+						state.sprites.push(sprite);
+						existing.add(key);
+						created.push(sprite.id);
+					}
+				}
+
+				if (!created.length) {
+					setStatus('No sprites were detected from the current grid.', 'error');
+					return;
+				}
+
+				state.selectedIds = [created[0]];
+				syncPrimarySelection();
+				markDirty();
+				updateSpriteList();
+				updateInspector();
+				render();
+				setStatus(
+					skipped
+						? `Created ${created.length} sprites. Skipped ${skipped} empty cells.`
+						: `Created ${created.length} sprites from grid cells.`,
+					'success'
+				);
+			}
+
+			function drawEmptyState() {
+				context.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+				context.save();
+				context.fillStyle = '#b8c7d8';
+				context.font = '600 24px "Avenir Next", sans-serif';
+				context.textAlign = 'center';
+				context.fillText('Load a PNG or JPG to start editing sprites', elements.canvas.width / 2, elements.canvas.height / 2 - 12);
+				context.fillStyle = '#8092a5';
+				context.font = '16px "Avenir Next", sans-serif';
+				context.fillText('Then drag on the image to create a rectangle.', elements.canvas.width / 2, elements.canvas.height / 2 + 20);
+				context.restore();
+			}
+
+			function drawHandles(sprite) {
+				const half = HANDLE_SIZE / 2;
+				const points = getHandlePoints(sprite);
+				context.save();
+				context.fillStyle = '#ffffff';
+				context.strokeStyle = '#0f151d';
+				context.lineWidth = 1;
+				for (const point of Object.values(points)) {
+					const x = state.panX + point.x * state.zoom - half;
+					const y = state.panY + point.y * state.zoom - half;
+					context.beginPath();
+					context.rect(x, y, HANDLE_SIZE, HANDLE_SIZE);
+					context.fill();
+					context.stroke();
+				}
+				context.restore();
+			}
+
+			function render() {
+				updateCanvasSize();
+				context.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+
+				if (!state.image) {
+					drawEmptyState();
+					return;
+				}
+
+				context.save();
+				context.translate(state.panX, state.panY);
+				context.scale(state.zoom, state.zoom);
+				context.imageSmoothingEnabled = false;
+				context.drawImage(state.image, 0, 0);
+
+				for (const sprite of state.sprites) {
+					const isPrimary = sprite.id === state.selectedId;
+					const isReference = !isPrimary && isSpriteSelected(sprite.id);
+					context.fillStyle = isPrimary
+						? 'rgba(76, 201, 240, 0.18)'
+						: isReference
+							? 'rgba(101, 193, 140, 0.18)'
+							: 'rgba(244, 162, 97, 0.18)';
+					context.strokeStyle = isPrimary ? '#4cc9f0' : isReference ? '#65c18c' : '#f4a261';
+					context.lineWidth = 1 / state.zoom;
+					context.fillRect(sprite.x, sprite.y, sprite.width, sprite.height);
+					context.strokeRect(sprite.x, sprite.y, sprite.width, sprite.height);
+				}
+
+				drawGridOverlay();
+
+				context.restore();
+
+				const selected = getSelectedSprite();
+				if (selected) {
+					drawHandles(selected);
+				}
+
+				drawGridAreaPickOverlay();
+			}
+
+			function getCanvasPoint(event) {
+				const rect = elements.canvas.getBoundingClientRect();
+				const screenX = event.clientX - rect.left;
+				const screenY = event.clientY - rect.top;
+				return {
+					screenX,
+					screenY,
+					x: clamp((screenX - state.panX) / state.zoom, 0, state.image ? state.image.width : Infinity),
+					y: clamp((screenY - state.panY) / state.zoom, 0, state.image ? state.image.height : Infinity),
+				};
+			}
+
+			function getHandlePoints(sprite) {
+				const left = sprite.x;
+				const right = sprite.x + sprite.width;
+				const top = sprite.y;
+				const bottom = sprite.y + sprite.height;
+				const middleX = sprite.x + sprite.width / 2;
+				const middleY = sprite.y + sprite.height / 2;
+				return {
+					nw: { x: left, y: top },
+					n: { x: middleX, y: top },
+					ne: { x: right, y: top },
+					e: { x: right, y: middleY },
+					se: { x: right, y: bottom },
+					s: { x: middleX, y: bottom },
+					sw: { x: left, y: bottom },
+					w: { x: left, y: middleY },
+				};
+			}
+
+			function getHandleHit(sprite, point) {
+				const threshold = HANDLE_SIZE / state.zoom;
+				const points = getHandlePoints(sprite);
+				for (const [name, handlePoint] of Object.entries(points)) {
+					if (Math.abs(point.x - handlePoint.x) <= threshold && Math.abs(point.y - handlePoint.y) <= threshold) {
+						return name;
+					}
+				}
+				return null;
+			}
+
+			function spriteAtPoint(point) {
+				for (let index = state.sprites.length - 1; index >= 0; index -= 1) {
+					const sprite = state.sprites[index];
+					if (
+						point.x >= sprite.x &&
+						point.x <= sprite.x + sprite.width &&
+						point.y >= sprite.y &&
+						point.y <= sprite.y + sprite.height
+					) {
+						return sprite;
+					}
+				}
+				return null;
+			}
+
+			function applyResize(sprite, originRect, handle, point) {
+				let left = originRect.x;
+				let top = originRect.y;
+				let right = originRect.x + originRect.width;
+				let bottom = originRect.y + originRect.height;
+
+				if (handle.includes('w')) {
+					left = clamp(roundPixel(point.x), 0, right - MIN_SIZE);
+				}
+				if (handle.includes('e')) {
+					right = clamp(roundPixel(point.x), left + MIN_SIZE, state.image.width);
+				}
+				if (handle.includes('n')) {
+					top = clamp(roundPixel(point.y), 0, bottom - MIN_SIZE);
+				}
+				if (handle.includes('s')) {
+					bottom = clamp(roundPixel(point.y), top + MIN_SIZE, state.image.height);
+				}
+
+				sprite.x = left;
+				sprite.y = top;
+				sprite.width = right - left;
+				sprite.height = bottom - top;
+				keepSpriteInBounds(sprite);
+			}
+
+			function addSprite(rect) {
+				const normalized = normalizeRect(rect);
+				const sprite = {
+					id: state.nextId,
+					name: nextSpriteName(),
+					index: null,
+					...normalized,
+				};
+				state.nextId += 1;
+				state.sprites.push(sprite);
+				selectSprite(sprite.id);
+				markDirty();
+				updateSpriteList();
+				updateInspector();
+				render();
+				setStatus(`Created ${sprite.name}.`, 'success');
+				return sprite;
+			}
+
+			function deleteSelectedSprite() {
+				const selectedSprites = getSelectedSprites();
+				if (!selectedSprites.length) {
+					return;
+				}
+				const selectedIds = new Set(state.selectedIds);
+				state.sprites = state.sprites.filter((sprite) => !selectedIds.has(sprite.id));
+				state.selectedIds = state.sprites.length ? [state.sprites[state.sprites.length - 1].id] : [];
+				syncPrimarySelection();
+				markDirty();
+				updateSpriteList();
+				updateInspector();
+				render();
+				setStatus(
+					selectedSprites.length === 1
+						? `Deleted ${selectedSprites[0].name}.`
+						: `Deleted ${selectedSprites.length} sprites.`,
+					'success'
+				);
+			}
+
+			function copySelectedSprite() {
+				const selected = getSelectedSprite();
+				if (!selected) {
+					return;
+				}
+				state.clipboard = {
+					name: selected.name,
+					x: selected.x,
+					y: selected.y,
+					width: selected.width,
+					height: selected.height,
+				};
+				elements.pasteButton.disabled = false;
+				setStatus(`Copied ${selected.name}.`, 'success');
+			}
+
+			function pasteSprite() {
+				if (!state.clipboard || !state.image) {
+					return;
+				}
+				const sprite = {
+					id: state.nextId,
+					name: `${state.clipboard.name}_copy`,
+					x: state.clipboard.x + PASTE_OFFSET,
+					y: state.clipboard.y + PASTE_OFFSET,
+					width: state.clipboard.width,
+					height: state.clipboard.height,
+				};
+				keepSpriteInBounds(sprite);
+				state.nextId += 1;
+				state.sprites.push(sprite);
+				selectSprite(sprite.id);
+				markDirty();
+				updateSpriteList();
+				updateInspector();
+				render();
+				setStatus(`Pasted ${sprite.name}.`, 'success');
+			}
+
+			function setZoom(nextZoom, anchorScreenX, anchorScreenY) {
+				const safeZoom = clamp(nextZoom, 0.1, 10);
+				if (anchorScreenX !== undefined && anchorScreenY !== undefined) {
+					const imgX = (anchorScreenX - state.panX) / state.zoom;
+					const imgY = (anchorScreenY - state.panY) / state.zoom;
+					state.panX = anchorScreenX - imgX * safeZoom;
+					state.panY = anchorScreenY - imgY * safeZoom;
+				}
+				state.zoom = safeZoom;
+				const matchesPreset = ZOOM_LEVELS.includes(safeZoom);
+				if (matchesPreset) {
+					const customOption = elements.zoomSelect.querySelector('option[data-custom]');
+					if (customOption) {
+						customOption.remove();
+					}
+					elements.zoomSelect.value = String(safeZoom);
+				} else {
+					let customOption = elements.zoomSelect.querySelector('option[data-custom]');
+					if (!customOption) {
+						customOption = document.createElement('option');
+						customOption.dataset.custom = '1';
+						elements.zoomSelect.append(customOption);
+					}
+					const pct = Math.round(safeZoom * 100);
+					customOption.value = String(safeZoom);
+					customOption.textContent = `${pct}%`;
+					elements.zoomSelect.value = String(safeZoom);
+				}
+				render();
+			}
+
+			function fitImageInViewport() {
+				if (!state.image) {
+					return;
+				}
+				const padding = 24;
+				const vw = elements.canvas.width || elements.workspace.clientWidth;
+				const vh = elements.canvas.height || elements.workspace.clientHeight;
+				const fitZoom = Math.min((vw - padding * 2) / state.image.width, (vh - padding * 2) / state.image.height);
+				const newZoom = Math.round(clamp(fitZoom, 0.1, 10) * 1000) / 1000;
+				state.zoom = newZoom;
+				state.panX = Math.round((vw - state.image.width * newZoom) / 2);
+				state.panY = Math.round((vh - state.image.height * newZoom) / 2);
+				const matchesPreset = ZOOM_LEVELS.includes(newZoom);
+				if (matchesPreset) {
+					const old = elements.zoomSelect.querySelector('option[data-custom]');
+					if (old) old.remove();
+					elements.zoomSelect.value = String(newZoom);
+				} else {
+					let opt = elements.zoomSelect.querySelector('option[data-custom]');
+					if (!opt) {
+						opt = document.createElement('option');
+						opt.dataset.custom = '1';
+						elements.zoomSelect.append(opt);
+					}
+					opt.value = String(newZoom);
+					opt.textContent = `${Math.round(newZoom * 100)}%`;
+					elements.zoomSelect.value = String(newZoom);
+				}
+			}
+
+			function promptForGridCount(message, fallbackValue) {
+				const response = window.prompt(message, String(fallbackValue));
+				if (response === null) {
+					return null;
+				}
+				const value = Number.parseInt(response, 10);
+				if (!Number.isInteger(value) || value < 2) {
+					setStatus('Rows and columns must be whole numbers of at least 2.', 'error');
+					return undefined;
+				}
+				return value;
+			}
+
+			function spritePositionKey(x, y) {
+				return `${roundPixel(x)}:${roundPixel(y)}`;
+			}
+
+			function expandGridFromSelection() {
+				if (!state.image) {
+					return;
+				}
+				const selectedSprites = getSelectedSprites();
+				if (selectedSprites.length !== 3) {
+					setStatus('Select exactly 3 sprites in order: main, right reference, down reference.', 'error');
+					return;
+				}
+
+				const [mainSprite, rightSprite, downSprite] = selectedSprites;
+				const horizontalStride = {
+					x: rightSprite.x - mainSprite.x,
+					y: rightSprite.y - mainSprite.y,
+				};
+				const verticalStride = {
+					x: downSprite.x - mainSprite.x,
+					y: downSprite.y - mainSprite.y,
+				};
+
+				if (horizontalStride.x <= 0 || (horizontalStride.x === 0 && horizontalStride.y === 0)) {
+					setStatus('The second selected sprite must be to the right of the main sprite.', 'error');
+					return;
+				}
+				if (verticalStride.y <= 0 || (verticalStride.x === 0 && verticalStride.y === 0)) {
+					setStatus('The third selected sprite must be below the main sprite.', 'error');
+					return;
+				}
+
+				const rows = promptForGridCount('How many total rows should the grid have? (includes the selected top row)', 2);
+				if (rows === null || rows === undefined) {
+					return;
+				}
+
+				const columns = promptForGridCount('How many total columns should the grid have? (includes the selected left column)', 2);
+				if (columns === null || columns === undefined) {
+					return;
+				}
+
+				const existingPositions = new Set(
+					state.sprites.map((sprite) => spritePositionKey(sprite.x, sprite.y))
+				);
+				const createdIds = [];
+				let skippedOutOfBounds = 0;
+
+				for (let row = 0; row < rows; row += 1) {
+					for (let column = 0; column < columns; column += 1) {
+						const x = roundPixel(mainSprite.x + (horizontalStride.x * column) + (verticalStride.x * row));
+						const y = roundPixel(mainSprite.y + (horizontalStride.y * column) + (verticalStride.y * row));
+						const key = spritePositionKey(x, y);
+						if (existingPositions.has(key)) {
+							continue;
+						}
+
+						const sprite = {
+							id: state.nextId,
+							name: `${mainSprite.name}_r${row + 1}_c${column + 1}`,
+							x,
+							y,
+							width: mainSprite.width,
+							height: mainSprite.height,
+						};
+
+						if (
+							sprite.x < 0 ||
+							sprite.y < 0 ||
+							sprite.x + sprite.width > state.image.width ||
+							sprite.y + sprite.height > state.image.height
+						) {
+							skippedOutOfBounds += 1;
+							continue;
+						}
+
+						state.nextId += 1;
+						state.sprites.push(sprite);
+						existingPositions.add(key);
+						createdIds.push(sprite.id);
+					}
+				}
+
+				if (!createdIds.length) {
+					setStatus('No new sprites were created from that grid expansion.', 'error');
+					return;
+				}
+
+				markDirty();
+				updateSpriteList();
+				updateInspector();
+				render();
+				setStatus(
+					skippedOutOfBounds
+						? `Created ${createdIds.length} sprites. Skipped ${skippedOutOfBounds} out-of-bounds positions.`
+						: `Created ${createdIds.length} sprites from the selected grid.`,
+					'success'
+				);
+			}
+
+			function zoomByStep(direction) {
+				const currentIndex = ZOOM_LEVELS.indexOf(state.zoom);
+				const nextIndex = clamp(currentIndex + direction, 0, ZOOM_LEVELS.length - 1);
+				setZoom(ZOOM_LEVELS[nextIndex]);
+			}
+
+			function updateAllViews() {
+				updateSpriteList();
+				updateInspector();
+				updateSummary();
+				render();
+			}
+
+			function applyLoadedImage(image, imageName, imagePath, imageDataUrl, resetSprites = true) {
+				state.image = image;
+				state.imageName = imageName;
+				state.imagePath = imagePath || '';
+				state.imageDataUrl = imageDataUrl || '';
+				if (resetSprites) {
+					state.sprites = [];
+					state.selectedId = null;
+					state.selectedIds = [];
+					state.nextId = 1;
+					state.clipboard = null;
+				}
+				state.grid.enabled = false;
+				state.grid.editMode = false;
+				state.grid.awaitingAreaPick = false;
+				state.grid.xLines = [];
+				state.grid.yLines = [];
+				state.grid.dragging = null;
+				state.interaction = null;
+				clearDirty();
+				updateAllViews();
+				updateGridButtons();
+				fitImageInViewport();
+				render();
+			}
+
+			function fileUrlFromPath(imagePath) {
+				if (!imagePath) {
+					return '';
+				}
+				if (imagePath.startsWith('file://')) {
+					return imagePath;
+				}
+				if (imagePath.startsWith('/')) {
+					return `file://${encodeURI(imagePath)}`;
+				}
+				return encodeURI(imagePath);
+			}
+
+			function loadImageFromUrl(imageUrl, imageName, imagePath, imageDataUrl = '', resetSprites = true) {
+				return new Promise((resolve, reject) => {
+					const image = new Image();
+					image.onload = () => {
+						applyLoadedImage(image, imageName, imagePath, imageDataUrl, resetSprites);
+						resolve(image);
+					};
+					image.onerror = () => {
+						reject(new Error('The referenced image path could not be loaded.'));
+					};
+					image.src = imageUrl;
+				});
+			}
+
+			function loadImageFromDataUrl(imageDataUrl, imageName, resetSprites = true) {
+				return loadImageFromUrl(imageDataUrl, imageName, '', imageDataUrl, resetSprites).catch(() => {
+					throw new Error('Embedded image data could not be loaded.');
+				});
+			}
+
+			function loadImageFromPath(imagePath, imageName, resetSprites = true) {
+				const imageUrl = fileUrlFromPath(imagePath);
+				if (!imageUrl) {
+					return Promise.reject(new Error('No usable image path was stored in the sprite JSON.'));
+				}
+				return loadImageFromUrl(imageUrl, imageName, imagePath, '', resetSprites);
+			}
+
+			function getBestEffortFilePath(file) {
+				if (file && typeof file.path === 'string' && file.path.trim()) {
+					return file.path;
+				}
+				return '';
+			}
+
+			function loadImage(file) {
+				if (!file) {
+					return;
+				}
+				const imagePath = getBestEffortFilePath(file);
+				const reader = new FileReader();
+				reader.onload = () => {
+					const imageDataUrl = String(reader.result || '');
+					loadImageFromUrl(imageDataUrl, file.name, imagePath, imageDataUrl)
+						.then(() => {
+							setStatus(
+								imagePath
+									? `Loaded ${file.name}.`
+									: `Loaded ${file.name}. Full local path was not exposed by this browser, so JSON export will not include it.`,
+								imagePath ? 'success' : 'error'
+							);
+						})
+						.catch((error) => {
+							setStatus(error instanceof Error ? error.message : 'The selected file could not be read as a supported image.', 'error');
+						});
+				};
+				reader.onerror = () => {
+					setStatus('The selected file could not be read as a supported image.', 'error');
+				};
+				reader.readAsDataURL(file);
+			}
+
+			function validateSpritePayload(payload) {
+				if (!payload || typeof payload !== 'object' || !Array.isArray(payload.sprites)) {
+					throw new Error('JSON must contain a sprites array.');
+				}
+				return payload.sprites.map((sprite, index) => {
+					const candidate = {
+						id: Number.isInteger(sprite.id) ? sprite.id : state.nextId + index,
+						name: typeof sprite.name === 'string' && sprite.name.trim() ? sprite.name.trim() : `sprite_${String(index + 1).padStart(3, '0')}`,
+						index: Number.isInteger(sprite.index) ? sprite.index : null,
+						x: Number(sprite.x),
+						y: Number(sprite.y),
+						width: Number(sprite.width),
+						height: Number(sprite.height),
+					};
+
+					if (![candidate.x, candidate.y, candidate.width, candidate.height].every(Number.isFinite)) {
+						throw new Error(`Sprite at index ${index} is missing numeric x, y, width, or height.`);
+					}
+
+					const normalized = normalizeRect(candidate);
+					return {
+						id: candidate.id,
+						name: candidate.name,
+						index: candidate.index,
+						...normalized,
+					};
+				});
+			}
+
+			function loadSpriteJson(file) {
+				if (!file) {
+					return;
+				}
+				const reader = new FileReader();
+				reader.onload = () => {
+					const applyPayload = () => {
+						const payload = JSON.parse(String(reader.result));
+						const sprites = validateSpritePayload(payload);
+						state.sprites = sprites;
+						state.selectedIds = sprites.length ? [sprites[0].id] : [];
+						syncPrimarySelection();
+						state.nextId = sprites.reduce((maxId, sprite) => Math.max(maxId, sprite.id), 0) + 1;
+						if (state.image) {
+							for (const sprite of state.sprites) {
+								keepSpriteInBounds(sprite);
+							}
+						}
+						clearDirty();
+						updateAllViews();
+						setStatus(`Loaded ${sprites.length} sprite${sprites.length === 1 ? '' : 's'} from JSON.`, 'success');
+					};
+
+					try {
+						const payload = JSON.parse(String(reader.result));
+						const storedImagePath = typeof payload?.image?.path === 'string' ? payload.image.path : '';
+						const embeddedImageData = payload?.image?.dataUrl;
+						const embeddedImageName = payload?.image?.name || state.imageName || 'embedded-image';
+						if (storedImagePath) {
+							loadImageFromPath(storedImagePath, embeddedImageName, false)
+								.then(() => {
+									applyPayload();
+								})
+								.catch((error) => {
+									if (typeof embeddedImageData === 'string' && embeddedImageData.startsWith('data:image/')) {
+										loadImageFromDataUrl(embeddedImageData, embeddedImageName, false)
+											.then(() => {
+												applyPayload();
+											})
+											.catch((embeddedError) => {
+												setStatus(embeddedError instanceof Error ? embeddedError.message : 'Embedded image data could not be loaded.', 'error');
+											});
+										return;
+									}
+									setStatus(error instanceof Error ? error.message : 'The referenced image path could not be loaded.', 'error');
+								});
+							return;
+						}
+						if (typeof embeddedImageData === 'string' && embeddedImageData.startsWith('data:image/')) {
+							loadImageFromDataUrl(embeddedImageData, embeddedImageName, false)
+								.then(() => {
+									applyPayload();
+								})
+								.catch((error) => {
+									setStatus(error instanceof Error ? error.message : 'Embedded image data could not be loaded.', 'error');
+								});
+							return;
+						}
+
+						applyPayload();
+					} catch (error) {
+						setStatus(error instanceof Error ? error.message : 'The JSON file could not be loaded.', 'error');
+					}
+				};
+				reader.onerror = () => {
+					setStatus('The JSON file could not be read.', 'error');
+				};
+				reader.readAsText(file);
+			}
+
+			function exportSprites() {
+				if (!state.image) {
+					return;
+				}
+				const payload = {
+					version: 1,
+					image: {
+						name: state.imageName,
+						path: state.imagePath,
+						width: state.image.width,
+						height: state.image.height,
+					},
+					sprites: state.sprites.map((sprite) => ({
+						id: sprite.id,
+						name: sprite.name,
+						index: sprite.index,
+						x: sprite.x,
+						y: sprite.y,
+						width: sprite.width,
+						height: sprite.height,
+					})),
+				};
+
+				const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+				const url = URL.createObjectURL(blob);
+				const anchor = document.createElement('a');
+				anchor.href = url;
+				anchor.download = spriteFileName();
+				document.body.append(anchor);
+				anchor.click();
+				anchor.remove();
+				URL.revokeObjectURL(url);
+				clearDirty();
+				setStatus(`Saved ${spriteFileName()}.`, 'success');
+			}
+
+			function handleDroppedFile(file) {
+				if (!file) {
+					return;
+				}
+
+				const normalizedName = file.name.toLowerCase();
+				if (file.type === 'application/json' || normalizedName.endsWith('.json')) {
+					loadSpriteJson(file);
+					return;
+				}
+
+				if (file.type.startsWith('image/') || /\.(png|jpg|jpeg)$/i.test(normalizedName)) {
+					loadImage(file);
+					return;
+				}
+
+				setStatus('Dropped file is not supported. Use PNG, JPG, or JSON.', 'error');
+			}
+
+			function setDropTargetState(isActive) {
+				elements.workspace.classList.toggle('drop-target', isActive);
+			}
+
+			function onWindowDragOver(event) {
+				event.preventDefault();
+				event.dataTransfer.dropEffect = 'copy';
+			}
+
+			function onWindowDrop(event) {
+				event.preventDefault();
+				setDropTargetState(false);
+				const files = event.dataTransfer?.files;
+				if (!files || !files.length) {
+					return;
+				}
+				handleDroppedFile(files[0]);
+			}
+
+			function onWorkspaceDragEnter(event) {
+				event.preventDefault();
+				setDropTargetState(true);
+			}
+
+			function onWorkspaceDragLeave(event) {
+				if (event.currentTarget === event.target || !elements.workspace.contains(event.relatedTarget)) {
+					setDropTargetState(false);
+				}
+			}
+
+			function onCanvasPointerDown(event) {
+				if (!state.image) {
+					return;
+				}
+				// Middle mouse or Space+left = pan
+				if (event.button === 1 || (event.button === 0 && state.isSpaceHeld)) {
+					state.interaction = {
+						type: 'pan',
+						startScreenX: event.clientX,
+						startScreenY: event.clientY,
+						startPanX: state.panX,
+						startPanY: state.panY,
+					};
+					elements.canvas.style.cursor = 'grabbing';
+					elements.canvas.focus();
+					return;
+				}
+				const point = getCanvasPoint(event);
+				if (state.grid.awaitingAreaPick) {
+					state.interaction = {
+						type: 'gridAreaSelect',
+						startX: point.x,
+						startY: point.y,
+						currentX: point.x,
+						currentY: point.y,
+					};
+					elements.canvas.focus();
+					render();
+					return;
+				}
+				const lineHit = findGridLineHit(point);
+				if (lineHit) {
+					state.grid.dragging = lineHit;
+					elements.canvas.focus();
+					return;
+				}
+				const additiveSelection = event.metaKey || event.ctrlKey || event.shiftKey;
+				const selected = getSelectedSprite();
+				const handle = !additiveSelection && selected ? getHandleHit(selected, point) : null;
+
+				if (handle && selected) {
+					state.interaction = {
+						type: 'resize',
+						spriteId: selected.id,
+						handle,
+						originRect: { x: selected.x, y: selected.y, width: selected.width, height: selected.height },
+					};
+					elements.canvas.focus();
+					return;
+				}
+
+				const hitSprite = spriteAtPoint(point);
+				if (hitSprite) {
+					selectSprite(hitSprite.id, additiveSelection);
+					if (additiveSelection) {
+						elements.canvas.focus();
+						return;
+					}
+					state.interaction = {
+						type: 'move',
+						spriteId: hitSprite.id,
+						offsetX: point.x - hitSprite.x,
+						offsetY: point.y - hitSprite.y,
+					};
+					elements.canvas.focus();
+					return;
+				}
+
+				if (additiveSelection) {
+					return;
+				}
+
+				clearSelection();
+				state.interaction = {
+					type: 'create',
+					startX: point.x,
+					startY: point.y,
+					draftSpriteId: null,
+				};
+				elements.canvas.focus();
+			}
+
+			function onCanvasPointerMove(event) {
+				if (!state.image && !state.interaction) {
+					return;
+				}
+				if (state.interaction && state.interaction.type === 'pan') {
+					state.panX = state.interaction.startPanX + (event.clientX - state.interaction.startScreenX);
+					state.panY = state.interaction.startPanY + (event.clientY - state.interaction.startScreenY);
+					render();
+					return;
+				}
+				if (!state.image || !state.interaction) {
+					if (!state.image || !state.grid.dragging) {
+						return;
+					}
+					const point = getCanvasPoint(event);
+					dragGridLine(point);
+					return;
+				}
+				const point = getCanvasPoint(event);
+
+				if (state.interaction.type === 'gridAreaSelect') {
+					state.interaction.currentX = point.x;
+					state.interaction.currentY = point.y;
+					render();
+					return;
+				}
+
+				const sprite = getSelectedSprite();
+
+				if (state.interaction.type === 'create') {
+					const widthDelta = point.x - state.interaction.startX;
+					const heightDelta = point.y - state.interaction.startY;
+					const crossedThreshold =
+						Math.abs(widthDelta) >= CREATE_DRAG_THRESHOLD ||
+						Math.abs(heightDelta) >= CREATE_DRAG_THRESHOLD;
+
+					if (!state.interaction.draftSpriteId) {
+						if (!crossedThreshold) {
+							return;
+						}
+						const createdSprite = addSprite({
+							x: state.interaction.startX,
+							y: state.interaction.startY,
+							width: widthDelta,
+							height: heightDelta,
+						});
+						state.interaction.draftSpriteId = createdSprite.id;
+					}
+
+					const draftSprite = state.sprites.find((candidate) => candidate.id === state.interaction.draftSpriteId) || null;
+					if (!draftSprite) {
+						state.interaction = null;
+						return;
+					}
+					const normalized = normalizeRect({
+						x: state.interaction.startX,
+						y: state.interaction.startY,
+						width: widthDelta,
+						height: heightDelta,
+					});
+					Object.assign(draftSprite, normalized);
+					keepSpriteInBounds(draftSprite);
+					updateSpriteList();
+					updateInspector();
+					render();
+					return;
+				}
+
+				if (!sprite || sprite.id !== state.interaction.spriteId) {
+					return;
+				}
+
+				if (state.interaction.type === 'move') {
+					sprite.x = roundPixel(point.x - state.interaction.offsetX);
+					sprite.y = roundPixel(point.y - state.interaction.offsetY);
+					keepSpriteInBounds(sprite);
+				}
+
+				if (state.interaction.type === 'resize') {
+					applyResize(sprite, state.interaction.originRect, state.interaction.handle, point);
+				}
+
+				updateSpriteList();
+				updateInspector();
+				render();
+			}
+
+			function onCanvasPointerUp() {
+				if (state.interaction && state.interaction.type === 'pan') {
+					state.interaction = null;
+					elements.canvas.style.cursor = state.isSpaceHeld ? 'grab' : '';
+					return;
+				}
+				if (state.grid.dragging) {
+					state.grid.dragging = null;
+					render();
+					setStatus('Grid line updated.', 'success');
+					return;
+				}
+				if (!state.interaction) {
+					return;
+				}
+
+				if (state.interaction.type === 'gridAreaSelect') {
+					const widthDelta = Math.abs(state.interaction.currentX - state.interaction.startX);
+					const heightDelta = Math.abs(state.interaction.currentY - state.interaction.startY);
+					if (widthDelta < CREATE_DRAG_THRESHOLD || heightDelta < CREATE_DRAG_THRESHOLD) {
+						state.interaction = null;
+						state.grid.awaitingAreaPick = false;
+						updateGridButtons();
+						render();
+						setStatus('Grid area selection cancelled.', 'error');
+						return;
+					}
+
+					const normalized = normalizeRect({
+						x: state.interaction.startX,
+						y: state.interaction.startY,
+						width: state.interaction.currentX - state.interaction.startX,
+						height: state.interaction.currentY - state.interaction.startY,
+					});
+					state.interaction = null;
+					applyGridFromArea(normalized);
+					return;
+				}
+				if (state.interaction.type === 'create' && !state.interaction.draftSpriteId) {
+					state.interaction = null;
+					return;
+				}
+				const sprite = getSelectedSprite();
+				if (sprite) {
+					keepSpriteInBounds(sprite);
+					markDirty();
+					updateSpriteList();
+					updateInspector();
+					render();
+				}
+				state.interaction = null;
+			}
+
+			function onInspectorChange() {
+				const selected = getSelectedSprite();
+				if (!selected) {
+					return;
+				}
+				selected.name = elements.spriteName.value.trim() || selected.name;
+				
+				const indexInput = elements.spriteIndex.value.trim();
+				if (indexInput === '') {
+					selected.index = null;
+				} else {
+					const newIndex = Number.parseInt(indexInput, 10);
+					if (Number.isInteger(newIndex) && newIndex >= 0) {
+						const duplicate = state.sprites.find((s) => s.id !== selected.id && s.index === newIndex);
+						if (duplicate) {
+							appendLog('warn', `Cannot assign index ${newIndex}: already used by ${duplicate.name}.`);
+							updateInspector();
+							return;
+						}
+						selected.index = newIndex;
+					} else {
+						selected.index = null;
+					}
+				}
+				
+				selected.x = Number(elements.spriteX.value);
+				selected.y = Number(elements.spriteY.value);
+				selected.width = Number(elements.spriteWidth.value);
+				selected.height = Number(elements.spriteHeight.value);
+				keepSpriteInBounds(selected);
+				markDirty();
+				updateSpriteList();
+				updateInspector();
+				render();
+			}
+
+			function nudgeSelectedSprite(event) {
+				const selected = getSelectedSprite();
+				if (!selected || !state.image) {
+					return false;
+				}
+				const key = event.key;
+				let handled = true;
+				if (event.shiftKey) {
+					if (key === 'ArrowLeft') {
+						selected.x -= 1;
+						selected.width += 1;
+					} else if (key === 'ArrowRight') {
+						selected.width += 1;
+					} else if (key === 'ArrowUp') {
+						selected.y -= 1;
+						selected.height += 1;
+					} else if (key === 'ArrowDown') {
+						selected.height += 1;
+					} else {
+						handled = false;
+					}
+				} else {
+					if (key === 'ArrowLeft') {
+						selected.x -= 1;
+					} else if (key === 'ArrowRight') {
+						selected.x += 1;
+					} else if (key === 'ArrowUp') {
+						selected.y -= 1;
+					} else if (key === 'ArrowDown') {
+						selected.y += 1;
+					} else {
+						handled = false;
+					}
+				}
+
+				if (!handled) {
+					return false;
+				}
+				keepSpriteInBounds(selected);
+				markDirty();
+				updateSpriteList();
+				updateInspector();
+				render();
+				return true;
+			}
+
+			function onGlobalKeyDown(event) {
+				const target = event.target;
+				const isTextInput = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+
+				if ((event.metaKey || event.ctrlKey) && !event.shiftKey) {
+					if (event.key.toLowerCase() === 'c') {
+						copySelectedSprite();
+						event.preventDefault();
+						return;
+					}
+					if (event.key.toLowerCase() === 'v') {
+						pasteSprite();
+						event.preventDefault();
+						return;
+					}
+				}
+
+				if (isTextInput) {
+					return;
+				}
+
+				if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'e') {
+					expandGridFromSelection();
+					event.preventDefault();
+					return;
+				}
+
+				if (event.key === 'Delete' || event.key === 'Backspace') {
+					deleteSelectedSprite();
+					event.preventDefault();
+					return;
+				}
+
+				if (event.key.startsWith('Arrow') && state.grid.enabled && state.selectedIds.length === 0) {
+					let dx = 0;
+					let dy = 0;
+					if (event.key === 'ArrowLeft') {
+						dx = -1;
+					} else if (event.key === 'ArrowRight') {
+						dx = 1;
+					} else if (event.key === 'ArrowUp') {
+						dy = -1;
+					} else if (event.key === 'ArrowDown') {
+						dy = 1;
+					}
+
+					if (event.shiftKey) {
+						dx *= 10;
+						dy *= 10;
+					}
+
+					const moved = moveWholeGridBy(dx, dy);
+					if (moved) {
+						event.preventDefault();
+					}
+					return;
+				}
+
+				if (event.key.startsWith('Arrow')) {
+					const handled = nudgeSelectedSprite(event);
+					if (handled) {
+						event.preventDefault();
+					}
+				}
+			}
+
+			function appendLog(level, message) {
+				const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+				state.log.push({ time: timestamp, level, message });
+				if (state.log.length > 500) {
+					state.log.shift();
+				}
+				
+				const logItem = document.createElement('li');
+				logItem.style.paddingBottom = '0.3rem';
+				logItem.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
+				
+				const levelColors = {
+					info: '#79d39d',
+					warn: '#f6b26b',
+					error: '#f25f5c',
+				};
+				logItem.style.color = levelColors[level] || '#9aa9bb';
+				logItem.textContent = `[${timestamp}] ${message}`;
+				
+				elements.logList.append(logItem);
+				elements.logList.scrollTop = elements.logList.scrollHeight;
+			}
+
+			function loadIndexMapJson(file) {
+				if (!file) {
+					return;
+				}
+				const reader = new FileReader();
+				reader.onload = () => {
+					try {
+						const payload = JSON.parse(String(reader.result));
+						
+						// Normalize to array of {name, index} pairs
+						let entries = [];
+						if (Array.isArray(payload)) {
+							entries = payload;
+						} else if (typeof payload === 'object') {
+							entries = Object.entries(payload).map(([name, index]) => ({ name, index }));
+						} else {
+							throw new Error('Index map must be a JSON object or array.');
+						}
+						
+						// Validate uniqueness of indices in incoming map
+						const incomingIndices = new Set();
+						for (const entry of entries) {
+							if (typeof entry.index !== 'number') {
+								continue;
+							}
+							if (incomingIndices.has(entry.index)) {
+								appendLog('error', `Duplicate index ${entry.index} in incoming map. Aborting load.`);
+								setStatus('Index map contains duplicate indices. Operation aborted.', 'error');
+								return;
+							}
+							incomingIndices.add(entry.index);
+						}
+						
+						// Process each entry
+						let assigned = 0;
+						let invalidated = 0;
+						for (const entry of entries) {
+							if (typeof entry.index !== 'number' || entry.index < 0) {
+								continue;
+							}
+							
+							const spriteToUpdate = state.sprites.find((s) => s.name === entry.name);
+							if (!spriteToUpdate) {
+								appendLog('warn', `Sprite named "${entry.name}" not found.`);
+								continue;
+							}
+							
+							// Check for conflict with existing sprite
+							const existingSprite = state.sprites.find((s) => s.id !== spriteToUpdate.id && s.index === entry.index);
+							if (existingSprite) {
+								appendLog('warn', `Invalidated index assignment on "${existingSprite.name}" (was ${existingSprite.index}).`);
+								existingSprite.index = -1;
+								invalidated += 1;
+							}
+							
+							spriteToUpdate.index = entry.index;
+							appendLog('info', `Assigned index ${entry.index} to "${spriteToUpdate.name}".`);
+							assigned += 1;
+						}
+						
+						markDirty();
+						updateAllViews();
+						setStatus(`Index map loaded: ${assigned} assigned, ${invalidated} invalidated.`, 'success');
+					} catch (error) {
+						appendLog('error', error instanceof Error ? error.message : 'Failed to parse index map JSON.');
+						setStatus('Index map could not be loaded.', 'error');
+					}
+				};
+				reader.onerror = () => {
+					appendLog('error', 'Could not read index map file.');
+					setStatus('The index map file could not be read.', 'error');
+				};
+				reader.readAsText(file);
+			}
+
+			elements.imageInput.addEventListener('change', (event) => {
+				const file = event.target.files && event.target.files[0];
+				loadImage(file);
+			});
+
+			elements.jsonInput.addEventListener('change', (event) => {
+				const file = event.target.files && event.target.files[0];
+				loadSpriteJson(file);
+			});
+
+			elements.indexMapInput.addEventListener('change', (event) => {
+				const file = event.target.files && event.target.files[0];
+				loadIndexMapJson(file);
+			});
+
+			elements.logButton.addEventListener('click', () => {
+				state.logPanelOpen = !state.logPanelOpen;
+				elements.workspace.style.display = state.logPanelOpen ? 'none' : '';
+				elements.logPanel.style.display = state.logPanelOpen ? 'block' : 'none';
+				elements.logButton.textContent = state.logPanelOpen ? 'Image' : 'Log';
+				if (state.logPanelOpen) {
+					elements.logPanel.scrollTop = elements.logPanel.scrollHeight;
+				}
+			});
+
+			elements.exportButton.addEventListener('click', exportSprites);
+			elements.copyButton.addEventListener('click', copySelectedSprite);
+			elements.pasteButton.addEventListener('click', pasteSprite);
+			elements.deleteButton.addEventListener('click', deleteSelectedSprite);
+			elements.createGridButton.addEventListener('click', createGridFromSelectionOrImage);
+			elements.selectGridAreaButton.addEventListener('click', startGridAreaPick);
+			elements.extractGridButton.addEventListener('click', extractSpritesFromGrid);
+			elements.clearGridButton.addEventListener('click', clearGrid);
+			elements.toggleGridEditButton.addEventListener('click', () => {
+				state.grid.editMode = !state.grid.editMode;
+				updateGridButtons();
+				render();
+			});
+			elements.zoomSelect.addEventListener('change', () => setZoom(Number(elements.zoomSelect.value)));
+			elements.zoomInButton.addEventListener('click', () => zoomByStep(1));
+			elements.zoomOutButton.addEventListener('click', () => zoomByStep(-1));
+			elements.fitButton.addEventListener('click', () => {
+				fitImageInViewport();
+				render();
+			});
+
+			for (const input of [elements.spriteName, elements.spriteIndex, elements.spriteX, elements.spriteY, elements.spriteWidth, elements.spriteHeight]) {
+				input.addEventListener('change', onInspectorChange);
+			}
+
+			elements.canvas.addEventListener('pointerdown', onCanvasPointerDown);
+			window.addEventListener('pointermove', onCanvasPointerMove);
+			window.addEventListener('pointerup', onCanvasPointerUp);
+				elements.workspace.addEventListener('wheel', (event) => {
+				if (!event.altKey) {
+					return;
+				}
+				event.preventDefault();
+				const cappedDelta = Math.min(Math.abs(event.deltaY), 30);
+					const direction = event.deltaY < 0 ? 1 : -1;
+					const factor = 1 + direction * cappedDelta * 0.001;
+					const rect = elements.canvas.getBoundingClientRect();
+					const screenX = event.clientX - rect.left;
+					const screenY = event.clientY - rect.top;
+					const next = Math.round(clamp(state.zoom * factor, 0.1, 10) * 1000) / 1000;
+					setZoom(next, screenX, screenY);
+				}, { passive: false });
+
+				window.addEventListener('keydown', (event) => {
+					if (event.code === 'Space' && !(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement)) {
+						event.preventDefault();
+						state.isSpaceHeld = true;
+						if (!state.interaction) {
+							elements.canvas.style.cursor = 'grab';
+						}
+					}
+				});
+
+				window.addEventListener('keyup', (event) => {
+					if (event.code === 'Space') {
+						state.isSpaceHeld = false;
+						if (!state.interaction || state.interaction.type !== 'pan') {
+							elements.canvas.style.cursor = '';
+						}
+					}
+				});
+
+				new ResizeObserver(() => render()).observe(elements.workspace);
+			elements.workspace.addEventListener('dragenter', onWorkspaceDragEnter);
+			elements.workspace.addEventListener('dragover', onWindowDragOver);
+			elements.workspace.addEventListener('dragleave', onWorkspaceDragLeave);
+			elements.workspace.addEventListener('drop', onWindowDrop);
+			window.addEventListener('dragover', onWindowDragOver);
+			window.addEventListener('drop', onWindowDrop);
+			window.addEventListener('keydown', onGlobalKeyDown);
+
+				const tooltip = document.getElementById('spriteTooltip');
+
+			function getSpriteAtPoint(point) {
+				for (let i = state.sprites.length - 1; i >= 0; i -= 1) {
+					const s = state.sprites[i];
+					if (point.x >= s.x && point.x <= s.x + s.width && point.y >= s.y && point.y <= s.y + s.height) {
+						return s;
+					}
+				}
+				return null;
+			}
+
+			function showTooltip(sprite, clientX, clientY) {
+				const indexText = sprite.index !== null && sprite.index !== -1 ? `Index: ${sprite.index}` : 'Index: (unassigned)';
+				tooltip.innerHTML = `<strong>${sprite.name}</strong><span>${indexText}</span><span>${sprite.width} &times; ${sprite.height} &nbsp;@&nbsp; x:${sprite.x} y:${sprite.y}</span>`;
+				
+				const margin = 14;
+				let left = clientX + margin;
+				let top = clientY + margin;
+				
+				// Prevent clipping at right/bottom edges
+				tooltip.style.display = 'block';
+				tooltip.style.left = `${left}px`;
+				tooltip.style.top = `${top}px`;
+				const tipRect = tooltip.getBoundingClientRect();
+				if (tipRect.right > window.innerWidth - 8) {
+					left = clientX - tipRect.width - margin;
+				}
+				if (tipRect.bottom > window.innerHeight - 8) {
+					top = clientY - tipRect.height - margin;
+				}
+				tooltip.style.left = `${left}px`;
+				tooltip.style.top = `${top}px`;
+			}
+
+			function hideTooltip() {
+				tooltip.style.display = 'none';
+			}
+
+			elements.canvas.addEventListener('pointermove', (event) => {
+				if (!state.image || state.interaction) {
+					hideTooltip();
+					return;
+				}
+				const point = getCanvasPoint(event);
+				const hovered = getSpriteAtPoint(point);
+				if (hovered) {
+					showTooltip(hovered, event.clientX, event.clientY);
+				} else {
+					hideTooltip();
+				}
+			});
+
+			elements.canvas.addEventListener('pointerleave', hideTooltip);
+
+			updateAllViews();
+			updateGridButtons();
+			setStatus('Load an image to begin.', 'neutral');
+
+			for (const heading of document.querySelectorAll('.panel h1, .panel h2')) {
+				heading.addEventListener('click', () => {
+					heading.closest('.panel').classList.toggle('collapsed');
+				});
+			}
+		})();
+	</script>
+</body>
+</html>

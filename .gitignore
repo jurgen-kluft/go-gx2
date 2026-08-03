@@ -15,9 +15,8 @@
 !*.hh
 !*.inl
 
-!*.sln
-!*.vcproj
-!*.vcxproj
+!*.html
+!*.js
 
 !*.txt
 !*.md
