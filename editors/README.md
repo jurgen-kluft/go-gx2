@@ -147,6 +147,15 @@ The target width and height must be positive whole numbers and cannot exceed the
 
 Use **Clear** to draw the selection again, or **Cancel Selection** to return to flood-fill mode. Cropping can be undone and may be combined with resizing in either order.
 
+After creating a crop rectangle, adjust its edges one pixel at a time with the keyboard:
+
+- Left/Right decreases or increases the left edge position.
+- Shift+Left/Right decreases or increases the right edge position.
+- Up/Down decreases or increases the top edge position.
+- Shift+Up/Down decreases or increases the bottom edge position.
+
+Edges remain inside the image and cannot cross, so the crop rectangle stays at least one pixel wide and high.
+
 ### Flood-fill workflow
 
 1. Load a PNG or JPG.

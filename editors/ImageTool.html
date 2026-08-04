@@ -380,6 +380,7 @@
         </div>
         <span id="cropSummary" class="subtle">No crop area selected.</span>
         <p class="subtle">Enter selection mode, then drag a rectangle over the image and apply the crop.</p>
+        <p class="subtle">Arrow keys adjust the left or top edge. Hold Shift to adjust the right or bottom edge.</p>
       </section>
 
       <section class="panel stack">
@@ -1145,6 +1146,54 @@
         );
       }
 
+      function onCropKeyDown(event) {
+        if (!state.cropSelection || !event.key.startsWith('Arrow')) {
+          return;
+        }
+
+        const target = event.target;
+        if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {
+          return;
+        }
+
+        const selection = state.cropSelection;
+        let left = selection.x;
+        let top = selection.y;
+        let right = selection.x + selection.width;
+        let bottom = selection.y + selection.height;
+
+        if (event.shiftKey) {
+          if (event.key === 'ArrowLeft') {
+            right = Math.max(left + 1, right - 1);
+          } else if (event.key === 'ArrowRight') {
+            right = Math.min(state.width, right + 1);
+          } else if (event.key === 'ArrowUp') {
+            bottom = Math.max(top + 1, bottom - 1);
+          } else if (event.key === 'ArrowDown') {
+            bottom = Math.min(state.height, bottom + 1);
+          }
+        } else if (event.key === 'ArrowLeft') {
+          left = Math.max(0, left - 1);
+        } else if (event.key === 'ArrowRight') {
+          left = Math.min(right - 1, left + 1);
+        } else if (event.key === 'ArrowUp') {
+          top = Math.max(0, top - 1);
+        } else if (event.key === 'ArrowDown') {
+          top = Math.min(bottom - 1, top + 1);
+        }
+
+        event.preventDefault();
+        state.cropSelection = {
+          x: left,
+          y: top,
+          width: right - left,
+          height: bottom - top,
+        };
+        updateControls();
+        render();
+        setStatus('Crop area adjusted.', 'ok');
+      }
+
       function onToleranceChange() {
         state.tolerance = Number.parseInt(elements.toleranceRange.value, 10) || 0;
         elements.toleranceValue.textContent = String(state.tolerance);
@@ -1191,6 +1240,7 @@
       elements.canvas.addEventListener('pointermove', onCropPointerMove);
       elements.canvas.addEventListener('pointerup', onCropPointerUp);
       elements.canvas.addEventListener('pointercancel', onCropPointerUp);
+      window.addEventListener('keydown', onCropKeyDown);
       elements.undoButton.addEventListener('click', undo);
       elements.resetButton.addEventListener('click', resetImage);
       elements.savePngButton.addEventListener('click', savePng);
