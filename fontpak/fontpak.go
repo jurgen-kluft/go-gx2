@@ -1,6 +1,7 @@
 package fontpack
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/jurgen-kluft/go-datastream/codestream"
@@ -16,7 +17,17 @@ func ReadPack(r io.Reader) ([]Font, error) {
 }
 
 // WritePack writes the provided FontPack to the provided writer.
-func WritePack(w io.Writer, fontPack *FontPack) error {
+func WritePack(w io.Writer, fonts []Font, names []string) error {
+
+	fmt.Println("Writing font pack...")
+
+	for i, font := range fonts {
+		PrintFontInfo(&font, names[i])
+	}
+
+	fontPack := &FontPack{
+		Fonts: fonts,
+	}
 	if err := codestream.WriteToStream(w, fontPack); err != nil {
 		return err
 	}

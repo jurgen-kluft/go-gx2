@@ -17,19 +17,19 @@ func singleFontConfig(path string, sdf bool) *FontPackCfg {
 	}}}
 }
 
-func requireSingleGlyph(t *testing.T, pack *FontPack) Font {
+func requireSingleGlyph(t *testing.T, pack []Font) Font {
 	t.Helper()
-	if len(pack.Fonts) != 1 {
-		t.Fatalf("expected one font, got %d", len(pack.Fonts))
+	if len(pack) != 1 {
+		t.Fatalf("expected one font, got %d", len(pack))
 	}
-	font := pack.Fonts[0]
+	font := pack[0]
 	if len(font.GlyphDims) != 1 || len(font.GlyphBearing) != 1 || len(font.GlyphAdvanceX) != 1 || len(font.GlyphOffset) != 1 {
 		t.Fatalf("expected one packed glyph: %+v", font)
 	}
 	if font.GlyphOffset[0] != 0 {
 		t.Fatalf("unexpected first glyph offset %d", font.GlyphOffset[0])
 	}
-	if got, want := len(font.Bitmap), int(font.GlyphDims[0].Width)*int(font.GlyphDims[0].Height); got != want {
+	if got, want := len(font.Data), int(font.GlyphDims[0].Width)*int(font.GlyphDims[0].Height); got != want {
 		t.Fatalf("bitmap length %d does not match dimensions %d", got, want)
 	}
 	return font
@@ -38,13 +38,16 @@ func requireSingleGlyph(t *testing.T, pack *FontPack) Font {
 func compareBitmapAndSDF(t *testing.T, path string) Font {
 	t.Helper()
 
-	bitmapPack, err := Build(singleFontConfig(path, false))
+	bitmapPack, bitmapNames, err := Build(singleFontConfig(path, false))
 	if err != nil {
 		t.Fatal(err)
 	}
-	sdfPack, err := Build(singleFontConfig(path, true))
+	sdfPack, sdfNames, err := Build(singleFontConfig(path, true))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(bitmapNames) != 1 || len(sdfNames) != 1 || bitmapNames[0] != sdfNames[0] {
+		t.Fatalf("font names do not match: bitmap=%v sdf=%v", bitmapNames, sdfNames)
 	}
 
 	storedSDFBuffer := 1
@@ -77,7 +80,7 @@ func TestBuildTTFSDF(t *testing.T) {
 	sdf := compareBitmapAndSDF(t, path)
 
 	var encoded bytes.Buffer
-	if err := WritePack(&encoded, &FontPack{Fonts: []Font{sdf}}); err != nil {
+	if err := WritePack(&encoded, []Font{sdf}, []string{"NotoSans-Regular"}); err != nil {
 		t.Fatal(err)
 	}
 	fonts, err := ReadPack(bytes.NewReader(encoded.Bytes()))

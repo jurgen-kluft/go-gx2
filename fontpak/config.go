@@ -31,24 +31,26 @@ type FontChar struct {
 }
 
 type FontCfg struct {
-	File      string     `json:"file"`
-	Name      string     `json:"name"`
-	Id        int        `json:"id"`
-	Size      int        `json:"size"`
-	Chars     []FontChar `json:"chars"`
-	SDF       bool       `json:"sdf"`
-	SDFBuffer int16      `json:"sdf_buffer"`
-	SDFRadius float64    `json:"sdf_radius"`
-	SDFCutoff float64    `json:"sdf_cutoff"`
+	File            string     `json:"file"`
+	Name            string     `json:"name"`
+	Id              int        `json:"id"`
+	Size            int        `json:"size"`
+	Chars           []FontChar `json:"chars"`
+	SDF             bool       `json:"sdf"`
+	SDFBuffer       int16      `json:"sdf_buffer"`
+	SDFBufferStored int16      `json:"sdf_buffer_stored"`
+	SDFRadius       float64    `json:"sdf_radius"`
+	SDFCutoff       float64    `json:"sdf_cutoff"`
 }
 
 func (font *FontCfg) options() Options {
 	options := Options{
-		FontSize:  font.Size,
-		SDF:       font.SDF,
-		SDFBuffer: font.SDFBuffer,
-		SDFRadius: font.SDFRadius,
-		SDFCutoff: font.SDFCutoff,
+		FontSize:        font.Size,
+		SDF:             font.SDF,
+		SDFBuffer:       font.SDFBuffer,
+		SDFBufferStored: font.SDFBufferStored,
+		SDFRadius:       font.SDFRadius,
+		SDFCutoff:       font.SDFCutoff,
 	}
 	if options.SDF {
 		if options.SDFBuffer == 0 {
@@ -86,14 +88,8 @@ func LoadConfig(path string) (*FontPackCfg, error) {
 		if font.Size <= 0 {
 			return nil, fmt.Errorf("font size must be positive in font %q of file %q", font.Name, font.File)
 		}
-		// if font.Dpi == 0 {
-		// 	font.Dpi = 72 // default DPI
-		// }
-		// if font.Dpi < 0 || font.Dpi > 1000 {
-		// 	return fmt.Errorf("DPI must be between 0 and 1000 in font %q of file %q", font.Name, font.File), nil
-		// }
-		if len(font.Chars) == 0 || len(font.Chars) > 255 {
-			return nil, fmt.Errorf("char map must contain between 1 and 255 characters in font %q of file %q", font.Name, font.File)
+		if len(font.Chars) == 0 || len(font.Chars) > (cMaximumNumberOfChars) {
+			return nil, fmt.Errorf("char map must contain between 1 and %d characters in font %q of file %q", cMaximumNumberOfChars, font.Name, font.File)
 		}
 		if font.SDF {
 			if font.SDFBuffer == 0 {
