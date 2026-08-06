@@ -7,7 +7,7 @@ Work is not saved automatically. Download the generated PNG or JSON before closi
 | Tool | Use it for | Input | Output |
 | --- | --- | --- | --- |
 | [Palette Tool](PaletteTool.html) | Extracting, editing, reducing, and applying RGB palettes | PNG, palette JSON | `<name>.palette.json`, `<name>.indexed.png` |
-| [Sprite Rectangle Editor](SpriteEditor.html) | Defining sprite rectangles on an image | PNG/JPG, sprite JSON, index-map JSON | `<name>.sprites.json` |
+| [Sprite Rectangle Editor](SpriteEditor.html) | Defining sprite rectangles on an image | PNG/JPG, sprite JSON | `<name>.sprites.json` |
 | [Image Tool](ImageTool.html) | Resizing, cropping, removing backgrounds, and converting anti-aliasing to alpha | PNG/JPG | `<name>.transparent.png` |
 
 ## Palette Tool
@@ -56,7 +56,7 @@ Open [SpriteEditor.html](SpriteEditor.html) to draw and maintain named sprite re
 
 1. Load an image, or load a previously saved sprite-list JSON file that references an image.
 2. Drag over empty image space to create a rectangle.
-3. Select a rectangle to edit its name, optional index, position, and size.
+3. Select a rectangle to edit its name, alpha format, position, and size.
 4. Move or resize rectangles on the canvas or with the keyboard.
 5. Select **Save JSON** to download `<image-name>.sprites.json`.
 
@@ -96,7 +96,7 @@ Saved files use this structure:
 		{
 			"id": 1,
 			"name": "button_normal",
-			"index": 0,
+			"alpha": 0,
 			"x": 0,
 			"y": 0,
 			"width": 32,
@@ -106,27 +106,7 @@ Saved files use this structure:
 }
 ```
 
-The loader requires a top-level `sprites` array and numeric `x`, `y`, `width`, and `height` values. Missing names and IDs receive defaults. The optional `image.path` or `image.dataUrl` fields can be used when loading a sprite list; otherwise, load the source image separately.
-
-### Index maps
-
-An index map assigns indices to existing sprites by exact name. Both an object and an array are accepted:
-
-```json
-{
-	"button_normal": 0,
-	"button_hover": 1
-}
-```
-
-```json
-[
-	{ "name": "button_normal", "index": 0 },
-	{ "name": "button_hover", "index": 1 }
-]
-```
-
-Duplicate indices in the incoming map abort the entire load. If an incoming assignment conflicts with an index already held by another sprite, the previous assignment is invalidated. Open **Log** to review assignments, missing names, and conflicts.
+The loader requires a top-level `sprites` array and numeric `x`, `y`, `width`, and `height` values. Missing names and IDs receive defaults. Alpha accepts `0` (None), `1` (Mask), `2` (A2), `4` (A4), or `8` (A8), and defaults to None. The optional `image.path` or `image.dataUrl` fields can be used when loading a sprite list; otherwise, load the source image separately.
 
 ## Image Tool
 

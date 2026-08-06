@@ -454,10 +454,6 @@
 					<div class="field">
 						<label class="inline-label" for="jsonInput">Sprite list JSON</label>
 						<input id="jsonInput" type="file" accept="application/json,.json">
-				</div>
-				<div class="field">
-					<label class="inline-label" for="indexMapInput">Index map JSON</label>
-					<input id="indexMapInput" type="file" accept="application/json,.json">
 					</div>
 					<div class="row wrap">
 						<button id="exportButton" type="button" disabled>Save JSON</button>
@@ -484,8 +480,14 @@
 					<input id="spriteName" type="text" placeholder="sprite_001" disabled>
 				</div>
 				<div class="field">
-					<label class="inline-label" for="spriteIndex">Index</label>
-					<input id="spriteIndex" type="number" min="0" step="1" placeholder="(unassigned)" disabled>
+					<label class="inline-label" for="spriteAlpha">Alpha</label>
+					<select id="spriteAlpha" disabled>
+						<option value="0">None</option>
+						<option value="1">Mask (1-bit)</option>
+						<option value="2">A2</option>
+						<option value="4">A4</option>
+						<option value="8">A8</option>
+					</select>
 				</div>
 				<div class="field-grid">
 					<div class="field">
@@ -636,13 +638,12 @@
 				pasteButton: document.getElementById('pasteButton'),
 				deleteButton: document.getElementById('deleteButton'),
 				logButton: document.getElementById('logButton'),
-				indexMapInput: document.getElementById('indexMapInput'),
 				logPanel: document.getElementById('logPanel'),
 				logList: document.getElementById('logList'),
 				spriteList: document.getElementById('spriteList'),
 				spriteCount: document.getElementById('spriteCount'),
 				spriteName: document.getElementById('spriteName'),
-				spriteIndex: document.getElementById('spriteIndex'),
+				spriteAlpha: document.getElementById('spriteAlpha'),
 				spriteX: document.getElementById('spriteX'),
 				spriteY: document.getElementById('spriteY'),
 				spriteWidth: document.getElementById('spriteWidth'),
@@ -797,8 +798,7 @@
 					item.dataset.spriteId = String(sprite.id);
 
 					const title = document.createElement('strong');
-					const indexBadge = sprite.index !== null && sprite.index !== -1 ? `[${sprite.index}] ` : '';
-					title.textContent = indexBadge + (role ? `${role}: ${sprite.name}` : sprite.name);
+					title.textContent = role ? `${role}: ${sprite.name}` : sprite.name;
 					const details = document.createElement('span');
 					details.className = 'subtle';
 					details.textContent = `x:${sprite.x} y:${sprite.y} w:${sprite.width} h:${sprite.height}`;
@@ -818,7 +818,7 @@
 				const enabled = Boolean(selected);
 				for (const element of [
 					elements.spriteName,
-					elements.spriteIndex,
+					elements.spriteAlpha,
 					elements.spriteX,
 					elements.spriteY,
 					elements.spriteWidth,
@@ -834,7 +834,7 @@
 
 				if (!selected) {
 					elements.spriteName.value = '';
-					elements.spriteIndex.value = '';
+					elements.spriteAlpha.value = '0';
 					elements.spriteX.value = '';
 					elements.spriteY.value = '';
 					elements.spriteWidth.value = '';
@@ -844,7 +844,7 @@
 				}
 
 				elements.spriteName.value = selected.name;
-				elements.spriteIndex.value = selected.index !== null && selected.index !== -1 ? String(selected.index) : '';
+				elements.spriteAlpha.value = String(selected.alpha);
 				elements.spriteX.value = String(selected.x);
 				elements.spriteY.value = String(selected.y);
 				elements.spriteWidth.value = String(selected.width);
@@ -1329,6 +1329,7 @@
 						const sprite = {
 							id: state.nextId,
 							name: `sprite_r${row + 1}_c${col + 1}`,
+							alpha: 0,
 							...rect,
 						};
 						state.nextId += 1;
@@ -1517,7 +1518,7 @@
 				const sprite = {
 					id: state.nextId,
 					name: nextSpriteName(),
-					index: null,
+					alpha: 0,
 					...normalized,
 				};
 				state.nextId += 1;
@@ -1559,6 +1560,7 @@
 				}
 				state.clipboard = {
 					name: selected.name,
+					alpha: selected.alpha,
 					x: selected.x,
 					y: selected.y,
 					width: selected.width,
@@ -1575,6 +1577,7 @@
 				const sprite = {
 					id: state.nextId,
 					name: `${state.clipboard.name}_copy`,
+					alpha: state.clipboard.alpha,
 					x: state.clipboard.x + PASTE_OFFSET,
 					y: state.clipboard.y + PASTE_OFFSET,
 					width: state.clipboard.width,
@@ -1726,6 +1729,7 @@
 						const sprite = {
 							id: state.nextId,
 							name: `${mainSprite.name}_r${row + 1}_c${column + 1}`,
+							alpha: mainSprite.alpha,
 							x,
 							y,
 							width: mainSprite.width,
@@ -1884,11 +1888,12 @@
 				if (!payload || typeof payload !== 'object' || !Array.isArray(payload.sprites)) {
 					throw new Error('JSON must contain a sprites array.');
 				}
+				const validAlphaFormats = new Set([0, 1, 2, 4, 8]);
 				return payload.sprites.map((sprite, index) => {
 					const candidate = {
 						id: Number.isInteger(sprite.id) ? sprite.id : state.nextId + index,
 						name: typeof sprite.name === 'string' && sprite.name.trim() ? sprite.name.trim() : `sprite_${String(index + 1).padStart(3, '0')}`,
-						index: Number.isInteger(sprite.index) ? sprite.index : null,
+						alpha: validAlphaFormats.has(sprite.alpha) ? sprite.alpha : 0,
 						x: Number(sprite.x),
 						y: Number(sprite.y),
 						width: Number(sprite.width),
@@ -1903,7 +1908,7 @@
 					return {
 						id: candidate.id,
 						name: candidate.name,
-						index: candidate.index,
+						alpha: candidate.alpha,
 						...normalized,
 					};
 				});
@@ -1994,7 +1999,7 @@
 					sprites: state.sprites.map((sprite) => ({
 						id: sprite.id,
 						name: sprite.name,
-						index: sprite.index,
+						alpha: sprite.alpha,
 						x: sprite.x,
 						y: sprite.y,
 						width: sprite.width,
@@ -2292,25 +2297,8 @@
 					return;
 				}
 				selected.name = elements.spriteName.value.trim() || selected.name;
-				
-				const indexInput = elements.spriteIndex.value.trim();
-				if (indexInput === '') {
-					selected.index = null;
-				} else {
-					const newIndex = Number.parseInt(indexInput, 10);
-					if (Number.isInteger(newIndex) && newIndex >= 0) {
-						const duplicate = state.sprites.find((s) => s.id !== selected.id && s.index === newIndex);
-						if (duplicate) {
-							appendLog('warn', `Cannot assign index ${newIndex}: already used by ${duplicate.name}.`);
-							updateInspector();
-							return;
-						}
-						selected.index = newIndex;
-					} else {
-						selected.index = null;
-					}
-				}
-				
+				selected.alpha = Number(elements.spriteAlpha.value);
+
 				selected.x = Number(elements.spriteX.value);
 				selected.y = Number(elements.spriteY.value);
 				selected.width = Number(elements.spriteWidth.value);
@@ -2440,11 +2428,11 @@
 				if (state.log.length > 500) {
 					state.log.shift();
 				}
-				
+
 				const logItem = document.createElement('li');
 				logItem.style.paddingBottom = '0.3rem';
 				logItem.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
-				
+
 				const levelColors = {
 					info: '#79d39d',
 					warn: '#f6b26b',
@@ -2452,84 +2440,9 @@
 				};
 				logItem.style.color = levelColors[level] || '#9aa9bb';
 				logItem.textContent = `[${timestamp}] ${message}`;
-				
+
 				elements.logList.append(logItem);
 				elements.logList.scrollTop = elements.logList.scrollHeight;
-			}
-
-			function loadIndexMapJson(file) {
-				if (!file) {
-					return;
-				}
-				const reader = new FileReader();
-				reader.onload = () => {
-					try {
-						const payload = JSON.parse(String(reader.result));
-						
-						// Normalize to array of {name, index} pairs
-						let entries = [];
-						if (Array.isArray(payload)) {
-							entries = payload;
-						} else if (typeof payload === 'object') {
-							entries = Object.entries(payload).map(([name, index]) => ({ name, index }));
-						} else {
-							throw new Error('Index map must be a JSON object or array.');
-						}
-						
-						// Validate uniqueness of indices in incoming map
-						const incomingIndices = new Set();
-						for (const entry of entries) {
-							if (typeof entry.index !== 'number') {
-								continue;
-							}
-							if (incomingIndices.has(entry.index)) {
-								appendLog('error', `Duplicate index ${entry.index} in incoming map. Aborting load.`);
-								setStatus('Index map contains duplicate indices. Operation aborted.', 'error');
-								return;
-							}
-							incomingIndices.add(entry.index);
-						}
-						
-						// Process each entry
-						let assigned = 0;
-						let invalidated = 0;
-						for (const entry of entries) {
-							if (typeof entry.index !== 'number' || entry.index < 0) {
-								continue;
-							}
-							
-							const spriteToUpdate = state.sprites.find((s) => s.name === entry.name);
-							if (!spriteToUpdate) {
-								appendLog('warn', `Sprite named "${entry.name}" not found.`);
-								continue;
-							}
-							
-							// Check for conflict with existing sprite
-							const existingSprite = state.sprites.find((s) => s.id !== spriteToUpdate.id && s.index === entry.index);
-							if (existingSprite) {
-								appendLog('warn', `Invalidated index assignment on "${existingSprite.name}" (was ${existingSprite.index}).`);
-								existingSprite.index = -1;
-								invalidated += 1;
-							}
-							
-							spriteToUpdate.index = entry.index;
-							appendLog('info', `Assigned index ${entry.index} to "${spriteToUpdate.name}".`);
-							assigned += 1;
-						}
-						
-						markDirty();
-						updateAllViews();
-						setStatus(`Index map loaded: ${assigned} assigned, ${invalidated} invalidated.`, 'success');
-					} catch (error) {
-						appendLog('error', error instanceof Error ? error.message : 'Failed to parse index map JSON.');
-						setStatus('Index map could not be loaded.', 'error');
-					}
-				};
-				reader.onerror = () => {
-					appendLog('error', 'Could not read index map file.');
-					setStatus('The index map file could not be read.', 'error');
-				};
-				reader.readAsText(file);
 			}
 
 			elements.imageInput.addEventListener('change', (event) => {
@@ -2540,11 +2453,6 @@
 			elements.jsonInput.addEventListener('change', (event) => {
 				const file = event.target.files && event.target.files[0];
 				loadSpriteJson(file);
-			});
-
-			elements.indexMapInput.addEventListener('change', (event) => {
-				const file = event.target.files && event.target.files[0];
-				loadIndexMapJson(file);
 			});
 
 			elements.logButton.addEventListener('click', () => {
@@ -2578,7 +2486,7 @@
 				render();
 			});
 
-			for (const input of [elements.spriteName, elements.spriteIndex, elements.spriteX, elements.spriteY, elements.spriteWidth, elements.spriteHeight]) {
+			for (const input of [elements.spriteName, elements.spriteAlpha, elements.spriteX, elements.spriteY, elements.spriteWidth, elements.spriteHeight]) {
 				input.addEventListener('change', onInspectorChange);
 			}
 
@@ -2641,13 +2549,13 @@
 			}
 
 			function showTooltip(sprite, clientX, clientY) {
-				const indexText = sprite.index !== null && sprite.index !== -1 ? `Index: ${sprite.index}` : 'Index: (unassigned)';
-				tooltip.innerHTML = `<strong>${sprite.name}</strong><span>${indexText}</span><span>${sprite.width} &times; ${sprite.height} &nbsp;@&nbsp; x:${sprite.x} y:${sprite.y}</span>`;
-				
+				const alphaNames = { 0: 'None', 1: 'Mask', 2: 'A2', 4: 'A4', 8: 'A8' };
+				tooltip.innerHTML = `<strong>${sprite.name}</strong><span>Alpha: ${alphaNames[sprite.alpha]}</span><span>${sprite.width} &times; ${sprite.height} &nbsp;@&nbsp; x:${sprite.x} y:${sprite.y}</span>`;
+
 				const margin = 14;
 				let left = clientX + margin;
 				let top = clientY + margin;
-				
+
 				// Prevent clipping at right/bottom edges
 				tooltip.style.display = 'block';
 				tooltip.style.left = `${left}px`;

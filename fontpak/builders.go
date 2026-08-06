@@ -134,64 +134,63 @@ func Build(cfg *FontPackCfg) (*FontPack, error) {
 	// build the charmap
 	parsedChars := [128 - 3]rune{}
 
-	for _, file := range cfg.Files {
-		ext := filepath.Ext(file.File)
+	for _, font := range cfg.Fonts {
+		ext := filepath.Ext(font.File)
 
-		for _, f := range file.Fonts {
-			var built *builtFont
-			var err error
+		var built *builtFont
+		var err error
 
-			options := f.options()
+		options := font.options()
 
-			numChars := len(f.Chars)
-			if numChars == 0 {
-				return nil, fmt.Errorf("font file %q has an empty char map", file.File)
-			}
-			if numChars > 255 {
-				return nil, fmt.Errorf("font file %q has too many chars in char map (max 255)", file.File)
-			}
-			for i := range parsedChars {
-				parsedChars[i] = 0
-			}
-			for i, ascii := range f.Chars {
-				glyph := f.Glyphs[i]
-				if len(ascii) != 1 {
-					return nil, fmt.Errorf("font file %q has invalid char %s with glyph %s", file.File, ascii, glyph)
-				}
-				if len(glyph) != 1 {
-					return nil, fmt.Errorf("font file %q has invalid char %s with glyph %s", file.File, ascii, glyph)
-				}
-				ascii_index := int(ascii[0])
-				parsedChars[ascii_index] = rune(glyph[0])
-			}
-
-			switch ext {
-			case ".ttf", ".otf":
-				built, err = buildTTFFont(
-					file.File,
-					options,
-					f.Name,
-					parsedChars,
-				)
-
-			case ".bdf":
-				built, err = buildBDFFont(
-					file.File,
-					options,
-					f.Name,
-					parsedChars,
-				)
-
-			default:
-				return nil, fmt.Errorf("unsupported font type: %s", ext)
-			}
-
-			if err != nil {
-				return nil, err
-			}
-
-			out = append(out, *built)
+		numChars := len(font.Chars)
+		if numChars == 0 {
+			return nil, fmt.Errorf("font file %q has an empty char map", font.File)
 		}
+		if numChars > 255 {
+			return nil, fmt.Errorf("font file %q has too many chars in char map (max 255)", font.File)
+		}
+		for i := range parsedChars {
+			parsedChars[i] = 0
+		}
+		for _, character := range font.Chars {
+			ascii := character.Address
+			glyph := character.Glyph
+			if len(character.Address) != 1 {
+				return nil, fmt.Errorf("font file %q has invalid char %s with glyph %s", font.File, ascii, glyph)
+			}
+			if len(glyph) != 1 {
+				return nil, fmt.Errorf("font file %q has invalid char %s with glyph %s", font.File, ascii, glyph)
+			}
+			ascii_index := int(ascii[0])
+			parsedChars[ascii_index] = rune(glyph[0])
+		}
+
+		switch ext {
+		case ".ttf", ".otf":
+			built, err = buildTTFFont(
+				font.File,
+				options,
+				font.Name,
+				parsedChars,
+			)
+
+		case ".bdf":
+			built, err = buildBDFFont(
+				font.File,
+				options,
+				font.Name,
+				parsedChars,
+			)
+
+		default:
+			return nil, fmt.Errorf("unsupported font type: %s", ext)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, *built)
 	}
 
 	// Conver the builtFont structs to Font structs, which is the format expected by the font pack reader and writer.

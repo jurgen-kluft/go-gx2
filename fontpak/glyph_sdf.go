@@ -11,10 +11,23 @@ func applySDF(glyph *builtGlyph, img image.Image, opts Options) {
 		return
 	}
 
-	bitmap, width, height := sdf_font.Generate(img, opts.SDFBuffer, opts.SDFRadius, opts.SDFCutoff)
+	bitmap, width, height := sdf_font.Generate(img, int(opts.SDFBuffer), opts.SDFRadius, opts.SDFCutoff)
+	crop := int(opts.SDFBuffer - opts.SDFBufferStored)
+	if crop > 0 {
+		croppedWidth := width - crop*2
+		croppedHeight := height - crop*2
+		cropped := make([]byte, croppedWidth*croppedHeight)
+		for y := 0; y < croppedHeight; y++ {
+			srcOffset := (y+crop)*width + crop
+			copy(cropped[y*croppedWidth:(y+1)*croppedWidth], bitmap[srcOffset:srcOffset+croppedWidth])
+		}
+		bitmap = cropped
+		width = croppedWidth
+		height = croppedHeight
+	}
 	glyph.Bitmap = bitmap
 	glyph.Width = uint16(width)
 	glyph.Height = uint16(height)
-	glyph.BearingX -= int16(opts.SDFBuffer)
-	glyph.BearingY += int16(opts.SDFBuffer)
+	glyph.BearingX -= opts.SDFBufferStored
+	glyph.BearingY += opts.SDFBufferStored
 }

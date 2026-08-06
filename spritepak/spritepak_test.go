@@ -63,7 +63,7 @@ func TestWriteReadPackRoundTrip(t *testing.T) {
 			Width:       4,
 			Height:      4,
 			PixelFormat: FMT_PIXEL_I8,
-			AlphaFormat: FMT_ALPHA_A0,
+			AlphaFormat: FMT_ALPHA_NONE,
 			PixelData:   []byte{0, 1, 2, 3, 4, 5, 6, 7},
 			AlphaData:   nil,
 		},
@@ -119,7 +119,7 @@ func TestWriteReadPackLargePayload(t *testing.T) {
 		{
 			Width:       512,
 			Height:      512,
-			PixelFormat: FMT_PIXEL_RGBA8888,
+			PixelFormat: FMT_PIXEL_RGB888,
 			AlphaFormat: FMT_ALPHA_A8,
 			PixelData:   pixelData,
 			AlphaData:   alphaData,

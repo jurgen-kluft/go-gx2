@@ -29,7 +29,7 @@ TTF, OTF, and BDF inputs produce coverage bitmaps by default. Set `sdf` on an in
 }
 ```
 
-The SDF settings default to a 3-pixel buffer, radius 8, and cutoff 0.25. The buffer is included in each glyph's stored width and height. Its horizontal bearing is reduced by the buffer and its vertical bearing is increased by the buffer; advance and font metrics do not change. Empty glyphs such as spaces remain advance-only. `Font.FontType` identifies coverage data as `FontTypeBitmap` and distance fields as `FontTypeSDF`.
+The SDF settings default to a 3-pixel generation buffer, radius 8, and cutoff 0.25. The full configured buffer is used while calculating the distance field, after which each non-empty glyph is cropped to retain a 1-pixel border in the font pack. Its stored width and height therefore increase by 2 pixels, its horizontal bearing is reduced by 1 pixel, and its vertical bearing is increased by 1 pixel. Advance and font metrics do not change. Empty glyphs such as spaces remain advance-only. `Font.FontType` identifies coverage data as `FontTypeBitmap` and distance fields as `FontTypeSDF`.
 
 ## C++ library
 

@@ -55,7 +55,7 @@ func fullRect(img image.Image) Rect {
 
 func analyzeAlpha(img image.Image, r Rect, alphaDisabled bool) AlphaFormat {
 	if alphaDisabled {
-		return FMT_ALPHA_A0
+		return FMT_ALPHA_NONE
 	}
 
 	alphas := make(map[uint8]bool, 256)
@@ -68,16 +68,16 @@ func analyzeAlpha(img image.Image, r Rect, alphaDisabled bool) AlphaFormat {
 	}
 
 	if len(alphas) == 0 {
-		return FMT_ALPHA_A0
+		return FMT_ALPHA_NONE
 	}
 
 	if len(alphas) == 1 {
 		for a := range alphas {
 			if a == 0xFF {
-				return FMT_ALPHA_A1
+				return FMT_ALPHA_MASK
 			}
 		}
-		return FMT_ALPHA_A0
+		return FMT_ALPHA_NONE
 	}
 
 	if len(alphas) <= 16 {
@@ -656,9 +656,9 @@ func Build(cfgs *SpritePackCfg) ([]Sprite, []PaletteRGBA, error) {
 			switch pixelFormatEnum {
 			case FMT_PIXEL_RGB565:
 				switch alphaFormatEnum {
-				case FMT_ALPHA_A0:
+				case FMT_ALPHA_NONE:
 					px, al = encodeRGB565A0(img, r)
-				case FMT_ALPHA_A1:
+				case FMT_ALPHA_MASK:
 					px, al = encodeRGB565A1(img, r)
 				case FMT_ALPHA_A4:
 					px, al = encodeRGB565A4(img, r)
@@ -667,10 +667,10 @@ func Build(cfgs *SpritePackCfg) ([]Sprite, []PaletteRGBA, error) {
 				default:
 					return nil, nil, fmt.Errorf("unsupported alpha format for RGB565: %s", s.AlphaFormat)
 				}
-			case FMT_PIXEL_RGBA8888:
+			case FMT_PIXEL_RGB888:
 				px = encodeRGBA8888(img, r)
 				// Alpha is embedded in RGBA8888, so we can ignore the alphaFormatEnum here
-				alphaFormatEnum = FMT_ALPHA_A0
+				alphaFormatEnum = FMT_ALPHA_NONE
 			case FMT_PIXEL_I8:
 				palIdx, ok := palettesMap[cfg.PaletteFile]
 				if !ok {

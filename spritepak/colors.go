@@ -98,7 +98,7 @@ func (p PaletteRGBA) ToPaletteRGB565() PaletteRGB565 {
 
 func (p PaletteRGBA) ToPaletteFormat(fmt PaletteFormat) []byte {
 	switch fmt {
-	case FMT_PALETTE_RGBA8888:
+	case FMT_PALETTE_RGB888:
 		data := make([]byte, 4*len(p))
 		for i, c := range p {
 			rgba := c.ToRGBA8888()

@@ -28,12 +28,12 @@ func TestLoadConfigSDFDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bitmap := cfg.Files[0].Fonts[0]
+	bitmap := cfg.Fonts[0]
 	if bitmap.SDF || bitmap.SDFBuffer != 0 || bitmap.SDFRadius != 0 || bitmap.SDFCutoff != 0 {
 		t.Fatalf("bitmap defaults changed: %+v", bitmap)
 	}
 
-	sdf := cfg.Files[0].Fonts[1]
+	sdf := cfg.Fonts[1]
 	if sdf.SDFBuffer != defaultSDFBuffer || sdf.SDFRadius != defaultSDFRadius || sdf.SDFCutoff != defaultSDFCutoff {
 		t.Fatalf("unexpected SDF defaults: %+v", sdf)
 	}

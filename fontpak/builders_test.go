@@ -8,15 +8,12 @@ import (
 )
 
 func singleFontConfig(path string, sdf bool) *FontPackCfg {
-	return &FontPackCfg{Files: []*FontFileCfg{{
-		File: path,
-		Fonts: []*FontCfg{{
-			Name:   "test",
-			Size:   16,
-			Chars:  []string{"A"},
-			Glyphs: []string{"A"},
-			SDF:    sdf,
-		}},
+	return &FontPackCfg{Fonts: []*FontCfg{{
+		File:  path,
+		Name:  "test",
+		Size:  16,
+		Chars: []FontChar{{Address: "A", Glyph: "A"}},
+		SDF:   sdf,
 	}}}
 }
 
@@ -50,21 +47,23 @@ func compareBitmapAndSDF(t *testing.T, path string) Font {
 		t.Fatal(err)
 	}
 
+	storedSDFBuffer := 1
+
 	bitmap := requireSingleGlyph(t, bitmapPack)
 	sdf := requireSingleGlyph(t, sdfPack)
 	if bitmap.FontType != FontTypeBitmap || sdf.FontType != FontTypeSDF {
 		t.Fatalf("unexpected font types: bitmap=%d sdf=%d", bitmap.FontType, sdf.FontType)
 	}
-	if got, want := int(sdf.GlyphDims[0].Width), int(bitmap.GlyphDims[0].Width)+2*defaultSDFBuffer; got != want {
+	if got, want := int(sdf.GlyphDims[0].Width), int(bitmap.GlyphDims[0].Width)+2*storedSDFBuffer; got != want {
 		t.Fatalf("SDF width %d, want %d", got, want)
 	}
-	if got, want := int(sdf.GlyphDims[0].Height), int(bitmap.GlyphDims[0].Height)+2*defaultSDFBuffer; got != want {
+	if got, want := int(sdf.GlyphDims[0].Height), int(bitmap.GlyphDims[0].Height)+2*storedSDFBuffer; got != want {
 		t.Fatalf("SDF height %d, want %d", got, want)
 	}
-	if got, want := int(sdf.GlyphBearing[0].X), int(bitmap.GlyphBearing[0].X)-defaultSDFBuffer; got != want {
+	if got, want := int(sdf.GlyphBearing[0].X), int(bitmap.GlyphBearing[0].X)-storedSDFBuffer; got != want {
 		t.Fatalf("SDF X bearing %d, want %d", got, want)
 	}
-	if got, want := int(sdf.GlyphBearing[0].Y), int(bitmap.GlyphBearing[0].Y)+defaultSDFBuffer; got != want {
+	if got, want := int(sdf.GlyphBearing[0].Y), int(bitmap.GlyphBearing[0].Y)+storedSDFBuffer; got != want {
 		t.Fatalf("SDF Y bearing %d, want %d", got, want)
 	}
 	if sdf.GlyphAdvanceX[0] != bitmap.GlyphAdvanceX[0] {
