@@ -13,8 +13,9 @@ func singleFontConfig(path string, sdf bool) *FontPackCfg {
 		Name:  "test",
 		Chars: []FontChar{{Address: "A", Glyph: "A"}},
 		Options: FontOptions{
-			FontSize: 16,
-			SDF:      sdf,
+			FontSize:  16,
+			SDF:       sdf,
+			SDFBorder: 0,
 		},
 	}}}
 }
@@ -31,7 +32,15 @@ func requireSingleGlyph(t *testing.T, pack []Font) Font {
 	if font.GlyphOffset[0] != 0 {
 		t.Fatalf("unexpected first glyph offset %d", font.GlyphOffset[0])
 	}
-	if got, want := len(font.Data), int(font.GlyphDims[0].Width)*int(font.GlyphDims[0].Height); got != want {
+
+	fontDataSize := 0
+	for _, dim := range font.GlyphDims {
+		fontDataSize += int(dim.Width) * int(dim.Height)
+		// every offset is in units of 8 bytes, so we need to round up to the next multiple of 8
+		fontDataSize = (fontDataSize + 7) &^ 7
+	}
+
+	if got, want := len(font.Data), fontDataSize; got != want {
 		t.Fatalf("bitmap length %d does not match dimensions %d", got, want)
 	}
 	return font
@@ -48,11 +57,11 @@ func compareBitmapAndSDF(t *testing.T, path string) Font {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(bitmapNames) != 1 || len(sdfNames) != 1 || bitmapNames[0] != sdfNames[0] {
+	if len(bitmapNames) != 1 || len(sdfNames) != 1 || bitmapNames[0].Name != sdfNames[0].Name {
 		t.Fatalf("font names do not match: bitmap=%v sdf=%v", bitmapNames, sdfNames)
 	}
 
-	storedSDFBuffer := 1
+	storedSDFBuffer := 0
 
 	bitmap := requireSingleGlyph(t, bitmapPack)
 	sdf := requireSingleGlyph(t, sdfPack)
@@ -82,12 +91,11 @@ func TestBuildTTFSDF(t *testing.T) {
 	sdf := compareBitmapAndSDF(t, path)
 
 	options := FontOptions{
-		FontSize:       16,
-		SDF:            true,
-		SDFBuildBorder: 4,
-		SDFFinalBorder: 1,
-		SDFRadius:      8.0,
-		SDFCutoff:      0.25,
+		FontSize:  16,
+		SDF:       true,
+		SDFBorder: 1,
+		SDFRadius: 8.0,
+		SDFCutoff: 0.25,
 	}
 
 	infos := []FontInfo{{Name: "NotoSans-Regular", Options: options}}

@@ -7,7 +7,8 @@ import (
 )
 
 type FontPackCfg struct {
-	Fonts []*FontCfg `json:"fonts"`
+	Fonts   []*FontCfg     `json:"fonts"`
+	Mapping map[string]int `json:"mapping"`
 }
 
 type FontChar struct {
@@ -23,30 +24,20 @@ type FontCfg struct {
 }
 
 type FontOptions struct {
-	FontSize       int     `json:"size"`             // FontSize is the size of the font in points (pt).
-	SDF            bool    `json:"sdf"`              // SDF indicates whether Signed Distance Field rendering is enabled.
-	SDFBuildBorder int16   `json:"sdf_build_border"` // SDFBuildBorder is the border size used for generating the SDF glyphs. It is typically larger than SDFFinalBorder to provide a margin for distance field calculations, but the stored glyphs are cropped to a smaller size to reduce memory usage.
-	SDFFinalBorder int16   `json:"sdf_final_border"` // SDFFinalBorder is the buffer size used for storing the SDF glyphs in the font pack. It is typically smaller than SDFBuildBorder to reduce memory usage while still providing a margin for distance field calculations.
-	SDFRadius      float64 `json:"sdf_radius"`       // SDFRadius is the radius used for generating the SDF glyphs.
-	SDFCutoff      float64 `json:"sdf_cutoff"`       // SDFCutoff is the cutoff value used for generating the SDF glyphs.
+	FontSize  int     `json:"size"`       // FontSize is the size of the font in points (pt).
+	SDF       bool    `json:"sdf"`        // SDF indicates whether Signed Distance Field rendering is enabled.
+	SDFBorder int16   `json:"sdf_border"` // SDFBorder is the buffer size used for storing the SDF glyphs in the font pack. It is typically smaller than SDFBuildBorder to reduce memory usage while still providing a margin for distance field calculations.
+	SDFRadius float64 `json:"sdf_radius"` // SDFRadius is the radius used for generating the SDF glyphs.
+	SDFCutoff float64 `json:"sdf_cutoff"` // SDFCutoff is the cutoff value used for generating the SDF glyphs.
 }
-
-const (
-	defaultSDFBuffer = 3
-	defaultSDFRadius = 8.0
-	defaultSDFCutoff = 0.25
-)
 
 func (font *FontCfg) options() FontOptions {
 	if font.Options.SDF {
-		if font.Options.SDFBuildBorder < defaultSDFBuffer {
-			font.Options.SDFBuildBorder = defaultSDFBuffer
-		}
 		if font.Options.SDFRadius <= 0.0 {
-			font.Options.SDFRadius = defaultSDFRadius
+			font.Options.SDFRadius = cDefaultSDFRadius
 		}
-		if font.Options.SDFCutoff < 0.0 {
-			font.Options.SDFCutoff = defaultSDFCutoff
+		if font.Options.SDFCutoff <= 0.0 {
+			font.Options.SDFCutoff = cDefaultSDFCutoff
 		}
 	}
 	return font.Options

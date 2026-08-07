@@ -1,9 +1,11 @@
 {
-  "fonts": [
+    "mapping": {
+      "FiraCodeNerdFontMono-Regular": 0
+    },
+    "fonts": [
     {
       "file": "/Users/obnosis5/Library/Fonts/FiraCodeNerdFontMono-Regular.ttf",
       "name": "FiraCodeNerdFontMono-Regular",
-      "id": 0,
       "options" : {
         "size": 24,
         "sdf": true

@@ -45,7 +45,7 @@ func PrintFontInfo(font *Font, info FontInfo) {
 
 	println("Font Info: ", info.Name)
 	println("    Glyphs: ", len(font.GlyphAdvanceX))
-	println("    Border: ", info.Options.SDFFinalBorder, " pixels")
+	println("    Border: ", info.Options.SDFBorder, " pixels")
 	println("    Font Size: ", info.Options.FontSize)
 	println("    Ascent: ", font.Ascent)
 	println("    Descent: ", font.Descent)

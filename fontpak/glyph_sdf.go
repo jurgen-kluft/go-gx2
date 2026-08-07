@@ -11,8 +11,8 @@ func applySDF(glyph *builtGlyph, img image.Image, opts FontOptions) {
 		return
 	}
 
-	bitmap, width, height := sdf_font.Generate(img, int(opts.SDFBuildBorder), opts.SDFRadius, opts.SDFCutoff)
-	crop := int(opts.SDFBuildBorder - opts.SDFFinalBorder)
+	bitmap, width, height := sdf_font.Generate(img, int(cSDFBuildBorder), opts.SDFRadius, opts.SDFCutoff)
+	crop := int(cSDFBuildBorder - opts.SDFBorder)
 	if crop > 0 {
 		croppedWidth := width - crop*2
 		croppedHeight := height - crop*2
@@ -28,6 +28,6 @@ func applySDF(glyph *builtGlyph, img image.Image, opts FontOptions) {
 	glyph.Bitmap = bitmap
 	glyph.Width = uint16(width)
 	glyph.Height = uint16(height)
-	glyph.BearingX -= opts.SDFFinalBorder
-	glyph.BearingY += opts.SDFFinalBorder
+	glyph.BearingX += opts.SDFBorder
+	glyph.BearingY += opts.SDFBorder
 }

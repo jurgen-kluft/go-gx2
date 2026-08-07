@@ -2,6 +2,10 @@ package fontpack
 
 const cMaxNumChars = 128 - 4
 
+const cSDFBuildBorder = 3
+const cDefaultSDFRadius = 8.0
+const cDefaultSDFCutoff = 0.25
+
 type GlyphBearing struct {
 	X int8
 	Y int8

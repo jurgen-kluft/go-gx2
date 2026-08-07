@@ -18,23 +18,22 @@ func loadTestConfig(t *testing.T, data string) (*FontPackCfg, error) {
 
 func TestLoadConfigSDFDefaults(t *testing.T) {
 	cfg, err := loadTestConfig(t, `{
-		"fonts": [{
-			"file": "font.ttf",
-			"fonts": [{"name":"bitmap","size":16,"chars":["A"],"glyphs":["A"]},
-			          {"name":"sdf","size":16,"chars":["A"],"glyphs":["A"],"sdf":true}]
-		}]
+		"fonts": [
+            {"file": "font.ttf", "name":"bitmap","chars":[{"address":"A", "glyph":"A"}], "options":{"size":16}},
+			{"file": "font.ttf", "name":"sdf","chars":[{"address":"A", "glyph":"A"}], "options":{"size":16,"sdf":true}}
+		]
 	}`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	bitmap := cfg.Fonts[0]
-	if bitmap.Options.SDF || bitmap.Options.SDFBuildBorder != 0 || bitmap.Options.SDFRadius != 0 || bitmap.Options.SDFCutoff != 0 {
+	if bitmap.Options.SDF || bitmap.Options.SDFRadius != 0 || bitmap.Options.SDFCutoff != 0 {
 		t.Fatalf("bitmap defaults changed: %+v", bitmap)
 	}
 
 	sdf := cfg.Fonts[1]
-	if sdf.Options.SDFBuildBorder != defaultSDFBuffer || sdf.Options.SDFRadius != defaultSDFRadius || sdf.Options.SDFCutoff != defaultSDFCutoff {
+	if sdf.Options.SDFRadius != cDefaultSDFRadius || sdf.Options.SDFCutoff != cDefaultSDFCutoff {
 		t.Fatalf("unexpected SDF defaults: %+v", sdf)
 	}
 }

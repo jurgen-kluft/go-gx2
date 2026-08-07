@@ -118,8 +118,8 @@ func Build(cfg *FontPackCfg) ([]Font, []FontInfo, error) {
 				Y: int8(bg.BearingY),
 			})
 			font.GlyphDims = append(font.GlyphDims, GlyphDimensions{
-				Width:  uint8(bg.Width),
-				Height: uint8(bg.Height),
+				Width:  uint8(bg.Width + uint16(2*options.SDFBorder)),
+				Height: uint8(bg.Height + uint16(2*options.SDFBorder)),
 			})
 
 			offset := uint16(len(font.Data) >> 3) // Each glyph's offset is in units of 8 bytes
