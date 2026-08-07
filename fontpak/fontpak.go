@@ -34,6 +34,35 @@ func WritePack(w io.Writer, fonts []Font, infos []FontInfo) error {
 	return nil
 }
 
+func (f *Font) PrintGlyphInfo(glyphIndex int) {
+	// Print binary grid that represents the glyph's bitmap data
+	if glyphIndex < 0 || glyphIndex >= len(f.GlyphAdvanceX) {
+		fmt.Printf("Invalid glyph index: %d\n", glyphIndex)
+		return
+	}
+
+	offset := uint32(f.GlyphOffset[glyphIndex]) * 8 // Each glyph's offset is in units of 8 bytes
+	width := f.GlyphDims[glyphIndex].Width
+	height := f.GlyphDims[glyphIndex].Height
+
+	fmt.Printf("Glyph Index: %d\n", glyphIndex)
+	fmt.Printf("Width: %d, Height: %d\n", width, height)
+	fmt.Printf("Offset: %d bytes\n", offset)
+
+	fmt.Println("Glyph Bitmap Data (Hex):")
+	for y := 0; y < int(height); y++ {
+		fmt.Printf("    ")
+		for x := 0; x < int(width); x++ {
+			byteIndex := int(offset) + x
+			b := f.Data[byteIndex]
+			// print double character HEX representation of the byte
+			fmt.Printf("%02X ", b)
+		}
+		fmt.Println()
+		offset += uint32(width)
+	}
+}
+
 func PrintFontInfo(font *Font, info FontInfo) {
 	size := len(font.Data)              // size of the bitmap data
 	size += len(font.GlyphAdvanceX) * 1 // int8

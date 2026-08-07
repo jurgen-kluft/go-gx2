@@ -16,10 +16,10 @@ func applySDF(glyph *builtGlyph, img image.Image, opts FontOptions) {
 	if crop > 0 {
 		croppedWidth := width - crop*2
 		croppedHeight := height - crop*2
-		cropped := make([]byte, croppedWidth*croppedHeight)
+		cropped := make([]byte, 0, croppedWidth*croppedHeight)
 		for y := 0; y < croppedHeight; y++ {
 			srcOffset := (y+crop)*width + crop
-			copy(cropped[y*croppedWidth:(y+1)*croppedWidth], bitmap[srcOffset:srcOffset+croppedWidth])
+			cropped = append(cropped, bitmap[srcOffset:srcOffset+croppedWidth]...)
 		}
 		bitmap = cropped
 		width = croppedWidth
@@ -28,6 +28,6 @@ func applySDF(glyph *builtGlyph, img image.Image, opts FontOptions) {
 	glyph.Bitmap = bitmap
 	glyph.Width = uint16(width)
 	glyph.Height = uint16(height)
-	glyph.BearingX += opts.SDFBorder
+	glyph.BearingX -= opts.SDFBorder
 	glyph.BearingY += opts.SDFBorder
 }

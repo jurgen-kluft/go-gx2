@@ -74,6 +74,8 @@ func buildGlyphTTF(face font.Face, r rune, opts FontOptions) (*builtGlyph, error
 		Height:   uint16(img.Bounds().Dy()),
 		Bitmap:   bitmap,
 	}
+
 	applySDF(glyph, img, opts)
+
 	return glyph, nil
 }

@@ -108,7 +108,7 @@ func Build(cfg *FontPackCfg) ([]Font, []FontInfo, error) {
 			GlyphBearing:  make([]GlyphBearing, 0, len(bf.Glyphs)),
 			GlyphDims:     make([]GlyphDimensions, 0, len(bf.Glyphs)),
 			GlyphOffset:   make([]uint16, 0, len(bf.Glyphs)),
-			Data:          make([]byte, 0, 32768),
+			Data:          make([]byte, 0, 65536),
 		}
 
 		for _, bg := range bf.Glyphs {
@@ -118,8 +118,8 @@ func Build(cfg *FontPackCfg) ([]Font, []FontInfo, error) {
 				Y: int8(bg.BearingY),
 			})
 			font.GlyphDims = append(font.GlyphDims, GlyphDimensions{
-				Width:  uint8(bg.Width + uint16(2*options.SDFBorder)),
-				Height: uint8(bg.Height + uint16(2*options.SDFBorder)),
+				Width:  uint8(bg.Width),
+				Height: uint8(bg.Height),
 			})
 
 			offset := uint16(len(font.Data) >> 3) // Each glyph's offset is in units of 8 bytes
@@ -166,8 +166,7 @@ func buildTTFFont(fontPath string, ops FontOptions, name string, glyphRunes [cMa
 		font.CharMap[i] = 0xFF
 	}
 
-	font.Ascent, font.Descent, font.LineGap =
-		extractFontMetrics(face)
+	font.Ascent, font.Descent, font.LineGap = extractFontMetrics(face)
 
 	for ascii, r := range glyphRunes {
 		if r == 0 {
