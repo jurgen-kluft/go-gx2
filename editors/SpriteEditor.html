@@ -443,8 +443,8 @@
 		<aside class="sidebar">
 			<section class="panel stack">
 				<div>
-					<h1>Sprite Rectangle Editor</h1>
-					<p class="subtle">Load a PNG or JPG, draw rectangles, edit them precisely, and save the sprite list as JSON.</p>
+					<h1>Sprite Editor</h1>
+					<p class="subtle">Load a PNG or JPG, draw and edit rectangles, and save as JSON.</p>
 				</div>
 				<div class="stack">
 					<div class="field">
@@ -612,10 +612,9 @@
 				panY: 0,
 				isSpaceHeld: false,
 				sprites: [],
-				selectedId: null,
-				selectedIds: [],
+				selectedSprite: null,
+				selectedSprites: [],
 				clipboard: null,
-				nextId: 1,
 				isDirty: false,
 				interaction: null,
 				log: [],
@@ -689,21 +688,19 @@
 			}
 
 			function getSelectedSprite() {
-				return state.sprites.find((sprite) => sprite.id === state.selectedId) || null;
+				return state.selectedSprite;
 			}
 
 			function getSelectedSprites() {
-				return state.selectedIds
-					.map((id) => state.sprites.find((sprite) => sprite.id === id) || null)
-					.filter(Boolean);
+				return state.selectedSprites;
 			}
 
-			function isSpriteSelected(id) {
-				return state.selectedIds.includes(id);
+			function isSpriteSelected(sprite) {
+				return state.selectedSprites.includes(sprite);
 			}
 
-			function selectionRoleForSprite(id) {
-				const index = state.selectedIds.indexOf(id);
+			function selectionRoleForSprite(sprite) {
+				const index = state.selectedSprites.indexOf(sprite);
 				if (index === 0) {
 					return 'Main';
 				}
@@ -717,13 +714,18 @@
 			}
 
 			function syncPrimarySelection() {
-				state.selectedIds = state.selectedIds.filter((id, index, values) => values.indexOf(id) === index);
-				state.selectedIds = state.selectedIds.filter((id) => state.sprites.some((sprite) => sprite.id === id)).slice(0, 3);
-				state.selectedId = state.selectedIds[0] ?? null;
+				state.selectedSprites = state.selectedSprites.filter((sprite, index, values) => values.indexOf(sprite) === index);
+				state.selectedSprites = state.selectedSprites.filter((sprite) => state.sprites.includes(sprite)).slice(0, 3);
+				state.selectedSprite = state.selectedSprites[0] ?? null;
 			}
 
 			function nextSpriteName() {
-				return `sprite_${String(state.nextId).padStart(3, '0')}`;
+				const existingNames = new Set(state.sprites.map((sprite) => sprite.name));
+				let index = 1;
+				while (existingNames.has(`sprite_${String(index).padStart(3, '0')}`)) {
+					index += 1;
+				}
+				return `sprite_${String(index).padStart(3, '0')}`;
 			}
 
 			function markDirty() {
@@ -777,8 +779,8 @@
 				}
 
 				const selected = getSelectedSprite();
-				if (state.selectedIds.length > 1 && selected) {
-					elements.selectionSummary.textContent = `${state.selectedIds.length} selected • Main: ${selected.name} • Press E to expand grid`;
+				if (state.selectedSprites.length > 1 && selected) {
+					elements.selectionSummary.textContent = `${state.selectedSprites.length} selected • Main: ${selected.name} • Press E to expand grid`;
 					return;
 				}
 
@@ -791,11 +793,10 @@
 				elements.spriteList.textContent = '';
 				for (const sprite of state.sprites) {
 					const item = document.createElement('li');
-					const role = selectionRoleForSprite(sprite.id);
-					const isPrimary = sprite.id === state.selectedId;
-					const isReference = !isPrimary && isSpriteSelected(sprite.id);
+					const role = selectionRoleForSprite(sprite);
+					const isPrimary = sprite === state.selectedSprite;
+					const isReference = !isPrimary && isSpriteSelected(sprite);
 					item.className = `sprite-item${isPrimary ? ' active' : ''}${isReference ? ' reference' : ''}`;
-					item.dataset.spriteId = String(sprite.id);
 
 					const title = document.createElement('strong');
 					title.textContent = role ? `${role}: ${sprite.name}` : sprite.name;
@@ -805,7 +806,7 @@
 
 					item.append(title, details);
 					item.addEventListener('click', (event) => {
-						selectSprite(sprite.id, event.metaKey || event.ctrlKey || event.shiftKey);
+						selectSprite(sprite, event.metaKey || event.ctrlKey || event.shiftKey);
 						elements.canvas.focus();
 					});
 					elements.spriteList.append(item);
@@ -852,19 +853,19 @@
 				updateSummary();
 			}
 
-			function selectSprite(id, additive = false) {
+			function selectSprite(sprite, additive = false) {
 				if (additive) {
-					if (isSpriteSelected(id)) {
-						state.selectedIds = state.selectedIds.filter((selectedId) => selectedId !== id);
+					if (isSpriteSelected(sprite)) {
+						state.selectedSprites = state.selectedSprites.filter((selectedSprite) => selectedSprite !== sprite);
 					} else {
-						if (state.selectedIds.length >= 3) {
+						if (state.selectedSprites.length >= 3) {
 							setStatus('Grid expansion uses up to 3 ordered selections: main, right reference, down reference.', 'error');
 							return;
 						}
-						state.selectedIds.push(id);
+						state.selectedSprites.push(sprite);
 					}
 				} else {
-					state.selectedIds = [id];
+					state.selectedSprites = [sprite];
 				}
 				syncPrimarySelection();
 				updateSpriteList();
@@ -873,7 +874,7 @@
 			}
 
 			function clearSelection() {
-				state.selectedIds = [];
+				state.selectedSprites = [];
 				syncPrimarySelection();
 				updateSpriteList();
 				updateInspector();
@@ -1327,15 +1328,13 @@
 						}
 
 						const sprite = {
-							id: state.nextId,
 							name: `sprite_r${row + 1}_c${col + 1}`,
 							alpha: 0,
 							...rect,
 						};
-						state.nextId += 1;
 						state.sprites.push(sprite);
 						existing.add(key);
-						created.push(sprite.id);
+						created.push(sprite);
 					}
 				}
 
@@ -1344,7 +1343,7 @@
 					return;
 				}
 
-				state.selectedIds = [created[0]];
+				state.selectedSprites = [created[0]];
 				syncPrimarySelection();
 				markDirty();
 				updateSpriteList();
@@ -1405,8 +1404,8 @@
 				context.drawImage(state.image, 0, 0);
 
 				for (const sprite of state.sprites) {
-					const isPrimary = sprite.id === state.selectedId;
-					const isReference = !isPrimary && isSpriteSelected(sprite.id);
+					const isPrimary = sprite === state.selectedSprite;
+					const isReference = !isPrimary && isSpriteSelected(sprite);
 					context.fillStyle = isPrimary
 						? 'rgba(76, 201, 240, 0.18)'
 						: isReference
@@ -1516,14 +1515,12 @@
 			function addSprite(rect) {
 				const normalized = normalizeRect(rect);
 				const sprite = {
-					id: state.nextId,
 					name: nextSpriteName(),
 					alpha: 0,
 					...normalized,
 				};
-				state.nextId += 1;
 				state.sprites.push(sprite);
-				selectSprite(sprite.id);
+				selectSprite(sprite);
 				markDirty();
 				updateSpriteList();
 				updateInspector();
@@ -1537,9 +1534,9 @@
 				if (!selectedSprites.length) {
 					return;
 				}
-				const selectedIds = new Set(state.selectedIds);
-				state.sprites = state.sprites.filter((sprite) => !selectedIds.has(sprite.id));
-				state.selectedIds = state.sprites.length ? [state.sprites[state.sprites.length - 1].id] : [];
+				const selectedSpritesSet = new Set(state.selectedSprites);
+				state.sprites = state.sprites.filter((sprite) => !selectedSpritesSet.has(sprite));
+				state.selectedSprites = state.sprites.length ? [state.sprites[state.sprites.length - 1]] : [];
 				syncPrimarySelection();
 				markDirty();
 				updateSpriteList();
@@ -1575,7 +1572,6 @@
 					return;
 				}
 				const sprite = {
-					id: state.nextId,
 					name: `${state.clipboard.name}_copy`,
 					alpha: state.clipboard.alpha,
 					x: state.clipboard.x + PASTE_OFFSET,
@@ -1584,9 +1580,8 @@
 					height: state.clipboard.height,
 				};
 				keepSpriteInBounds(sprite);
-				state.nextId += 1;
 				state.sprites.push(sprite);
-				selectSprite(sprite.id);
+				selectSprite(sprite);
 				markDirty();
 				updateSpriteList();
 				updateInspector();
@@ -1714,7 +1709,7 @@
 				const existingPositions = new Set(
 					state.sprites.map((sprite) => spritePositionKey(sprite.x, sprite.y))
 				);
-				const createdIds = [];
+				let createdCount = 0;
 				let skippedOutOfBounds = 0;
 
 				for (let row = 0; row < rows; row += 1) {
@@ -1727,7 +1722,6 @@
 						}
 
 						const sprite = {
-							id: state.nextId,
 							name: `${mainSprite.name}_r${row + 1}_c${column + 1}`,
 							alpha: mainSprite.alpha,
 							x,
@@ -1746,14 +1740,13 @@
 							continue;
 						}
 
-						state.nextId += 1;
 						state.sprites.push(sprite);
 						existingPositions.add(key);
-						createdIds.push(sprite.id);
+						createdCount += 1;
 					}
 				}
 
-				if (!createdIds.length) {
+				if (!createdCount) {
 					setStatus('No new sprites were created from that grid expansion.', 'error');
 					return;
 				}
@@ -1764,8 +1757,8 @@
 				render();
 				setStatus(
 					skippedOutOfBounds
-						? `Created ${createdIds.length} sprites. Skipped ${skippedOutOfBounds} out-of-bounds positions.`
-						: `Created ${createdIds.length} sprites from the selected grid.`,
+						? `Created ${createdCount} sprites. Skipped ${skippedOutOfBounds} out-of-bounds positions.`
+						: `Created ${createdCount} sprites from the selected grid.`,
 					'success'
 				);
 			}
@@ -1790,9 +1783,8 @@
 				state.imageDataUrl = imageDataUrl || '';
 				if (resetSprites) {
 					state.sprites = [];
-					state.selectedId = null;
-					state.selectedIds = [];
-					state.nextId = 1;
+					state.selectedSprite = null;
+					state.selectedSprites = [];
 					state.clipboard = null;
 				}
 				state.grid.enabled = false;
@@ -1890,23 +1882,23 @@
 				}
 				const validAlphaFormats = new Set([0, 1, 2, 4, 8]);
 				return payload.sprites.map((sprite, index) => {
+					const entry = sprite && typeof sprite === 'object' ? sprite : {};
+					const rect = entry.rect && typeof entry.rect === 'object' ? entry.rect : {};
 					const candidate = {
-						id: Number.isInteger(sprite.id) ? sprite.id : state.nextId + index,
-						name: typeof sprite.name === 'string' && sprite.name.trim() ? sprite.name.trim() : `sprite_${String(index + 1).padStart(3, '0')}`,
-						alpha: validAlphaFormats.has(sprite.alpha) ? sprite.alpha : 0,
-						x: Number(sprite.x),
-						y: Number(sprite.y),
-						width: Number(sprite.width),
-						height: Number(sprite.height),
+						name: typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : `sprite_${String(index + 1).padStart(3, '0')}`,
+						alpha: validAlphaFormats.has(entry.alpha) ? entry.alpha : 0,
+						x: Number(rect.x),
+						y: Number(rect.y),
+						width: Number(rect.w),
+						height: Number(rect.h),
 					};
 
 					if (![candidate.x, candidate.y, candidate.width, candidate.height].every(Number.isFinite)) {
-						throw new Error(`Sprite at index ${index} is missing numeric x, y, width, or height.`);
+						throw new Error(`Sprite at index ${index} must contain numeric rect.x, rect.y, rect.w, and rect.h values.`);
 					}
 
 					const normalized = normalizeRect(candidate);
 					return {
-						id: candidate.id,
 						name: candidate.name,
 						alpha: candidate.alpha,
 						...normalized,
@@ -1924,9 +1916,8 @@
 						const payload = JSON.parse(String(reader.result));
 						const sprites = validateSpritePayload(payload);
 						state.sprites = sprites;
-						state.selectedIds = sprites.length ? [sprites[0].id] : [];
+						state.selectedSprites = sprites.length ? [sprites[0]] : [];
 						syncPrimarySelection();
-						state.nextId = sprites.reduce((maxId, sprite) => Math.max(maxId, sprite.id), 0) + 1;
 						if (state.image) {
 							for (const sprite of state.sprites) {
 								keepSpriteInBounds(sprite);
@@ -1997,13 +1988,14 @@
 						height: state.image.height,
 					},
 					sprites: state.sprites.map((sprite) => ({
-						id: sprite.id,
-						name: sprite.name,
 						alpha: sprite.alpha,
-						x: sprite.x,
-						y: sprite.y,
-						width: sprite.width,
-						height: sprite.height,
+						name: sprite.name,
+						rect: {
+							x: sprite.x,
+							y: sprite.y,
+							w: sprite.width,
+							h: sprite.height,
+						},
 					})),
 				};
 
@@ -2112,7 +2104,7 @@
 				if (handle && selected) {
 					state.interaction = {
 						type: 'resize',
-						spriteId: selected.id,
+						sprite: selected,
 						handle,
 						originRect: { x: selected.x, y: selected.y, width: selected.width, height: selected.height },
 					};
@@ -2122,14 +2114,14 @@
 
 				const hitSprite = spriteAtPoint(point);
 				if (hitSprite) {
-					selectSprite(hitSprite.id, additiveSelection);
+					selectSprite(hitSprite, additiveSelection);
 					if (additiveSelection) {
 						elements.canvas.focus();
 						return;
 					}
 					state.interaction = {
 						type: 'move',
-						spriteId: hitSprite.id,
+						sprite: hitSprite,
 						offsetX: point.x - hitSprite.x,
 						offsetY: point.y - hitSprite.y,
 					};
@@ -2146,7 +2138,7 @@
 					type: 'create',
 					startX: point.x,
 					startY: point.y,
-					draftSpriteId: null,
+					draftSprite: null,
 				};
 				elements.canvas.focus();
 			}
@@ -2187,7 +2179,7 @@
 						Math.abs(widthDelta) >= CREATE_DRAG_THRESHOLD ||
 						Math.abs(heightDelta) >= CREATE_DRAG_THRESHOLD;
 
-					if (!state.interaction.draftSpriteId) {
+					if (!state.interaction.draftSprite) {
 						if (!crossedThreshold) {
 							return;
 						}
@@ -2197,10 +2189,10 @@
 							width: widthDelta,
 							height: heightDelta,
 						});
-						state.interaction.draftSpriteId = createdSprite.id;
+						state.interaction.draftSprite = createdSprite;
 					}
 
-					const draftSprite = state.sprites.find((candidate) => candidate.id === state.interaction.draftSpriteId) || null;
+					const draftSprite = state.interaction.draftSprite;
 					if (!draftSprite) {
 						state.interaction = null;
 						return;
@@ -2219,7 +2211,7 @@
 					return;
 				}
 
-				if (!sprite || sprite.id !== state.interaction.spriteId) {
+				if (!sprite || sprite !== state.interaction.sprite) {
 					return;
 				}
 
@@ -2276,7 +2268,7 @@
 					applyGridFromArea(normalized);
 					return;
 				}
-				if (state.interaction.type === 'create' && !state.interaction.draftSpriteId) {
+				if (state.interaction.type === 'create' && !state.interaction.draftSprite) {
 					state.interaction = null;
 					return;
 				}
@@ -2389,7 +2381,7 @@
 					return;
 				}
 
-				if (event.key.startsWith('Arrow') && state.grid.enabled && state.selectedIds.length === 0) {
+				if (event.key.startsWith('Arrow') && state.grid.enabled && state.selectedSprites.length === 0) {
 					let dx = 0;
 					let dy = 0;
 					if (event.key === 'ArrowLeft') {

@@ -94,19 +94,20 @@ Saved files use this structure:
 	},
 	"sprites": [
 		{
-			"id": 1,
-			"name": "button_normal",
 			"alpha": 0,
-			"x": 0,
-			"y": 0,
-			"width": 32,
-			"height": 16
+			"name": "button_normal",
+			"rect": {
+				"x": 0,
+				"y": 0,
+				"w": 32,
+				"h": 16
+			}
 		}
 	]
 }
 ```
 
-The loader requires a top-level `sprites` array and numeric `x`, `y`, `width`, and `height` values. Missing names and IDs receive defaults. Alpha accepts `0` (None), `1` (Mask), `2` (A2), `4` (A4), or `8` (A8), and defaults to None. The optional `image.path` or `image.dataUrl` fields can be used when loading a sprite list; otherwise, load the source image separately.
+The loader requires a top-level `sprites` array. Each sprite must contain a `rect` object with numeric `x`, `y`, `w`, and `h` values; legacy flattened rectangle fields are not accepted. Missing names receive defaults. Alpha accepts `0` (None), `1` (Mask), `2` (A2), `4` (A4), or `8` (A8), and defaults to None. The optional `image.path` or `image.dataUrl` fields can be used when loading a sprite list; otherwise, load the source image separately.
 
 ## Image Tool
 

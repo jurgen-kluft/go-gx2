@@ -44,6 +44,29 @@ const (
 	FMT_PALETTE_RGB565 PaletteFormat = 0x02 // RGB565 (16-bit)
 )
 
+type Rect struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+	W int `json:"w"`
+	H int `json:"h"`
+}
+
+func AlphaFormatFromInt(s int) (AlphaFormat, error) {
+	switch s {
+	case 0:
+		return FMT_ALPHA_NONE, nil
+	case 1:
+		return FMT_ALPHA_MASK, nil
+	case 2:
+		return FMT_ALPHA_A2, nil
+	case 4:
+		return FMT_ALPHA_A4, nil
+	case 8:
+		return FMT_ALPHA_A8, nil
+	}
+	return FMT_ALPHA_NONE, fmt.Errorf("unsupported alpha format: %d", s)
+}
+
 func AlphaFormatFromString(s string) (AlphaFormat, error) {
 	switch s {
 	case "A0", "NONE":
