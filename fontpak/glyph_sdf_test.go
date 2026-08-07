@@ -16,16 +16,16 @@ func TestApplySDFRetainsOnePixelBuffer(t *testing.T) {
 
 	for _, generationBuffer := range []int{1, 3} {
 		t.Run(string(rune('0'+generationBuffer)), func(t *testing.T) {
-			opts := Options{
-				SDF:       true,
-				SDFBuffer: int16(generationBuffer),
-				SDFRadius: 8,
-				SDFCutoff: 0.25,
+			opts := FontOptions{
+				SDF:            true,
+				SDFBuildBorder: int16(generationBuffer),
+				SDFRadius:      8,
+				SDFCutoff:      0.25,
 			}
-			full, fullWidth, _ := sdf_font.Generate(img, int(opts.SDFBuffer), opts.SDFRadius, opts.SDFCutoff)
-			crop := generationBuffer - int(opts.SDFBufferStored)
-			wantWidth := img.Bounds().Dx() + 2*int(opts.SDFBufferStored)
-			wantHeight := img.Bounds().Dy() + 2*int(opts.SDFBufferStored)
+			full, fullWidth, _ := sdf_font.Generate(img, int(opts.SDFBuildBorder), opts.SDFRadius, opts.SDFCutoff)
+			crop := generationBuffer - int(opts.SDFFinalBorder)
+			wantWidth := img.Bounds().Dx() + 2*int(opts.SDFFinalBorder)
+			wantHeight := img.Bounds().Dy() + 2*int(opts.SDFFinalBorder)
 			want := make([]byte, wantWidth*wantHeight)
 			for y := 0; y < wantHeight; y++ {
 				srcOffset := (y+crop)*fullWidth + crop

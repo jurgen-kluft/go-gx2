@@ -12,7 +12,7 @@ func fixedToInt(v fixed.Int26_6) int {
 	return int(v.Round())
 }
 
-func newTTFFace(opts Options, data []byte) (font.Face, error) {
+func newTTFFace(opts FontOptions, data []byte) (font.Face, error) {
 	f, err := opentype.Parse(data)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func extractFontMetrics(face font.Face) (ascent, descent, lineGap int16) {
 	return int16(a), int16(-d), int16(h - (a + d))
 }
 
-func buildGlyphTTF(face font.Face, r rune, opts Options) (*builtGlyph, error) {
+func buildGlyphTTF(face font.Face, r rune, opts FontOptions) (*builtGlyph, error) {
 	pb, advance, ok := face.GlyphBounds(r)
 	if !ok {
 		return nil, nil

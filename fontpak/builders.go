@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"unicode/utf8"
 
 	"github.com/jurgen-kluft/go-gx2/bdf"
 )
@@ -14,7 +15,7 @@ type builtFont struct {
 	GlyphsOffset  int64
 	BitmapsOffset int64
 	Glyphs        []builtGlyph
-	CharMap       [cMaximumNumberOfChars]uint8
+	CharMap       [cMaxNumChars]uint8
 	Ascent        int16
 	Descent       int16
 	LineGap       int16
@@ -32,58 +33,61 @@ type builtGlyph struct {
 	Bitmap   []byte
 }
 
-func Build(cfg *FontPackCfg) ([]Font, []string, error) {
-	var out []builtFont
+func Build(cfg *FontPackCfg) ([]Font, []FontInfo, error) {
+
+	infos := make([]FontInfo, 0, len(cfg.Fonts))
+	fonts := make([]Font, 0, len(cfg.Fonts))
 
 	// build the charmap
-	parsedChars := [cMaximumNumberOfChars]rune{}
+	glyphRunes := [cMaxNumChars]rune{}
 
-	for _, font := range cfg.Fonts {
-		ext := filepath.Ext(font.File)
+	for _, fontCfg := range cfg.Fonts {
+		ext := filepath.Ext(fontCfg.File)
 
-		var built *builtFont
 		var err error
 
-		options := font.options()
+		options := fontCfg.options()
 
-		numChars := len(font.Chars)
+		numChars := len(fontCfg.Chars)
 		if numChars == 0 {
-			return nil, nil, fmt.Errorf("font file %q has an empty char map", font.File)
+			return nil, nil, fmt.Errorf("font file \"%q\" has an empty char map", fontCfg.File)
 		}
-		if numChars > cMaximumNumberOfChars {
-			return nil, nil, fmt.Errorf("font file %q has too many chars in char map (max %d)", font.File, cMaximumNumberOfChars)
+		if numChars > cMaxNumChars {
+			return nil, nil, fmt.Errorf("font file \"%q\" has too many chars in char map (max %d)", fontCfg.File, cMaxNumChars)
 		}
-		for i := range parsedChars {
-			parsedChars[i] = 0
+		for i := range glyphRunes {
+			glyphRunes[i] = 0
 		}
-		for _, character := range font.Chars {
+		for _, character := range fontCfg.Chars {
 			ascii := character.Address
 			glyph := character.Glyph
 			if len(character.Address) != 1 {
-				return nil, nil, fmt.Errorf("font file %q has invalid char %s with glyph %s", font.File, ascii, glyph)
+				return nil, nil, fmt.Errorf("font file \"%q\" has invalid char \"%s\" with glyph \"%s\"", fontCfg.File, ascii, glyph)
 			}
-			if len(glyph) != 1 {
-				return nil, nil, fmt.Errorf("font file %q has invalid char %s with glyph %s", font.File, ascii, glyph)
+			if utf8.RuneCountInString(glyph) != 1 {
+				return nil, nil, fmt.Errorf("font file \"%q\" has more than 1 rune in \"%s\" for char \"%s\"", fontCfg.File, glyph, ascii)
 			}
 			ascii_index := int(ascii[0])
-			parsedChars[ascii_index] = rune(glyph[0])
+			glyphRunes[ascii_index], _ = utf8.DecodeRuneInString(glyph)
 		}
+
+		var bf *builtFont
 
 		switch ext {
 		case ".ttf", ".otf":
-			built, err = buildTTFFont(
-				font.File,
+			bf, err = buildTTFFont(
+				fontCfg.File,
 				options,
-				font.Name,
-				parsedChars,
+				fontCfg.Name,
+				glyphRunes,
 			)
 
 		case ".bdf":
-			built, err = buildBDFFont(
-				font.File,
+			bf, err = buildBDFFont(
+				fontCfg.File,
 				options,
-				font.Name,
-				parsedChars,
+				fontCfg.Name,
+				glyphRunes,
 			)
 
 		default:
@@ -94,22 +98,18 @@ func Build(cfg *FontPackCfg) ([]Font, []string, error) {
 			return nil, nil, err
 		}
 
-		out = append(out, *built)
-	}
-
-	// Conver the builtFont structs to Font structs, which is the format expected by the font pack reader and writer.
-	names := make([]string, len(out))
-	fonts := make([]Font, len(out))
-	for _, bf := range out {
-		var font Font
-		font.Ascent = int8(bf.Ascent)
-		font.Descent = int8(bf.Descent)
-		font.LineGap = int8(bf.LineGap)
-		font.Map = bf.CharMap
-		font.FontType = bf.FontType
-		font.Data = make([]byte, 0)
-
-		names = append(names, bf.Name)
+		font := Font{
+			Ascent:        int8(bf.Ascent),
+			Descent:       int8(bf.Descent),
+			LineGap:       int8(bf.LineGap),
+			Map:           bf.CharMap,
+			FontType:      bf.FontType,
+			GlyphAdvanceX: make([]int8, 0, len(bf.Glyphs)),
+			GlyphBearing:  make([]GlyphBearing, 0, len(bf.Glyphs)),
+			GlyphDims:     make([]GlyphDimensions, 0, len(bf.Glyphs)),
+			GlyphOffset:   make([]uint16, 0, len(bf.Glyphs)),
+			Data:          make([]byte, 0, 32768),
+		}
 
 		for _, bg := range bf.Glyphs {
 			font.GlyphAdvanceX = append(font.GlyphAdvanceX, int8(bg.AdvanceX))
@@ -133,13 +133,17 @@ func Build(cfg *FontPackCfg) ([]Font, []string, error) {
 		}
 
 		fonts = append(fonts, font)
+		infos = append(infos, FontInfo{
+			Name:    fontCfg.Name,
+			Options: fontCfg.options(),
+		})
 	}
 
-	return fonts, names, nil
+	return fonts, infos, nil
 }
 
 // buildTTFFont reads a TTF font file and builds a builtFont struct based on the provided character mapping.
-func buildTTFFont(fontPath string, ops Options, name string, parsedChars [cMaximumNumberOfChars]rune) (*builtFont, error) {
+func buildTTFFont(fontPath string, ops FontOptions, name string, glyphRunes [cMaxNumChars]rune) (*builtFont, error) {
 
 	data, err := os.ReadFile(fontPath)
 	if err != nil {
@@ -165,7 +169,7 @@ func buildTTFFont(fontPath string, ops Options, name string, parsedChars [cMaxim
 	font.Ascent, font.Descent, font.LineGap =
 		extractFontMetrics(face)
 
-	for ascii, r := range parsedChars {
+	for ascii, r := range glyphRunes {
 		if r == 0 {
 			// skip chars that were not set in the char map
 			continue
@@ -188,7 +192,7 @@ func buildTTFFont(fontPath string, ops Options, name string, parsedChars [cMaxim
 }
 
 // buildBDFFont reads a BDF font file and builds a builtFont struct based on the provided character mapping.
-func buildBDFFont(fontPath string, ops Options, name string, parsedChars [cMaximumNumberOfChars]rune) (*builtFont, error) {
+func buildBDFFont(fontPath string, ops FontOptions, name string, glyphRunes [cMaxNumChars]rune) (*builtFont, error) {
 
 	bdfData, err := os.ReadFile(fontPath)
 	if err != nil {
@@ -214,7 +218,7 @@ func buildBDFFont(fontPath string, ops Options, name string, parsedChars [cMaxim
 	font.Descent = int16(-bdfFont.Descent)
 	font.LineGap = 0
 
-	for ascii, r := range parsedChars {
+	for ascii, r := range glyphRunes {
 		if r == 0 {
 			// skip chars that were not set in the char map
 			continue

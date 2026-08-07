@@ -8,7 +8,7 @@ import (
 // BuildGlyphBDF converts a BDF Character into a builtGlyph.
 // The bitmap is returned as tightly packed 8‑bit alpha,
 // row‑major, with origin at the top‑left of the glyph bitmap.
-func buildGlyphBDF(ch *bdf.Character, opts Options) builtGlyph {
+func buildGlyphBDF(ch *bdf.Character, opts FontOptions) builtGlyph {
 	img := ch.Alpha
 	if img == nil {
 		return builtGlyph{

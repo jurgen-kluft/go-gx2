@@ -11,9 +11,11 @@ func singleFontConfig(path string, sdf bool) *FontPackCfg {
 	return &FontPackCfg{Fonts: []*FontCfg{{
 		File:  path,
 		Name:  "test",
-		Size:  16,
 		Chars: []FontChar{{Address: "A", Glyph: "A"}},
-		SDF:   sdf,
+		Options: FontOptions{
+			FontSize: 16,
+			SDF:      sdf,
+		},
 	}}}
 }
 
@@ -79,8 +81,19 @@ func TestBuildTTFSDF(t *testing.T) {
 	path := filepath.Join("sdf", "testdata", "NotoSans-Regular.ttf")
 	sdf := compareBitmapAndSDF(t, path)
 
+	options := FontOptions{
+		FontSize:       16,
+		SDF:            true,
+		SDFBuildBorder: 4,
+		SDFFinalBorder: 1,
+		SDFRadius:      8.0,
+		SDFCutoff:      0.25,
+	}
+
+	infos := []FontInfo{{Name: "NotoSans-Regular", Options: options}}
+
 	var encoded bytes.Buffer
-	if err := WritePack(&encoded, []Font{sdf}, []string{"NotoSans-Regular"}); err != nil {
+	if err := WritePack(&encoded, []Font{sdf}, infos); err != nil {
 		t.Fatal(err)
 	}
 	fonts, err := ReadPack(bytes.NewReader(encoded.Bytes()))

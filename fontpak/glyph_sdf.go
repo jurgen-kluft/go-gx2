@@ -6,13 +6,13 @@ import (
 	sdf_font "github.com/jurgen-kluft/go-gx2/fontpak/sdf"
 )
 
-func applySDF(glyph *builtGlyph, img image.Image, opts Options) {
+func applySDF(glyph *builtGlyph, img image.Image, opts FontOptions) {
 	if glyph == nil || !opts.SDF || glyph.Width == 0 || glyph.Height == 0 {
 		return
 	}
 
-	bitmap, width, height := sdf_font.Generate(img, int(opts.SDFBuffer), opts.SDFRadius, opts.SDFCutoff)
-	crop := int(opts.SDFBuffer - opts.SDFBufferStored)
+	bitmap, width, height := sdf_font.Generate(img, int(opts.SDFBuildBorder), opts.SDFRadius, opts.SDFCutoff)
+	crop := int(opts.SDFBuildBorder - opts.SDFFinalBorder)
 	if crop > 0 {
 		croppedWidth := width - crop*2
 		croppedHeight := height - crop*2
@@ -28,6 +28,6 @@ func applySDF(glyph *builtGlyph, img image.Image, opts Options) {
 	glyph.Bitmap = bitmap
 	glyph.Width = uint16(width)
 	glyph.Height = uint16(height)
-	glyph.BearingX -= opts.SDFBufferStored
-	glyph.BearingY += opts.SDFBufferStored
+	glyph.BearingX -= opts.SDFFinalBorder
+	glyph.BearingY += opts.SDFFinalBorder
 }
