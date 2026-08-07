@@ -53,7 +53,7 @@ func fullRect(img image.Image) Rect {
 	}
 }
 
-func analyzeAlpha(img image.Image, r Rect, alphaDisabled bool) AlphaFormat {
+func analyzeAlpha(img image.Image, r SpriteRect, alphaDisabled bool) AlphaFormat {
 	if alphaDisabled {
 		return FMT_ALPHA_NONE
 	}
@@ -375,7 +375,7 @@ func quantPNN(nodes []ColorNode, targetPaletteSize int) []ColorNode {
 	return palette
 }
 
-func buildIndexed8Palette(img image.Image, r Rect, pal PaletteRGBA) (pixels []byte, ok bool) {
+func buildIndexed8Palette(img image.Image, r SpriteRect, pal PaletteRGBA) (pixels []byte, ok bool) {
 
 	// Step 1: Convert the image to the rectangle defined size with RGB565 format
 	rgb565Img := make([]uint16, 0, r.W*r.H*2)
@@ -483,7 +483,7 @@ func buildPalette(img image.Image) (pal PaletteRGBA, err error) {
 }
 
 // RGB565 + A0 (no separate alpha bitstream)
-func encodeRGB565A0(img image.Image, r Rect) ([]byte, []byte) {
+func encodeRGB565A0(img image.Image, r SpriteRect) ([]byte, []byte) {
 	pixels := make([]byte, 0, r.W*r.H*2)
 
 	for y := 0; y < r.H; y++ {
@@ -502,7 +502,7 @@ func encodeRGB565A0(img image.Image, r Rect) ([]byte, []byte) {
 }
 
 // RGB565 + A1 (separate alpha bitstream)
-func encodeRGB565A1(img image.Image, r Rect) ([]byte, []byte) {
+func encodeRGB565A1(img image.Image, r SpriteRect) ([]byte, []byte) {
 	pixels := make([]byte, 0, r.W*r.H*2)
 	alpha := make([]byte, 0, (r.W*r.H+7)/8)
 
@@ -535,7 +535,7 @@ func encodeRGB565A1(img image.Image, r Rect) ([]byte, []byte) {
 }
 
 // RGB565 + A4 (separate alpha bitstream)
-func encodeRGB565A4(img image.Image, r Rect) ([]byte, []byte) {
+func encodeRGB565A4(img image.Image, r SpriteRect) ([]byte, []byte) {
 	pixels := make([]byte, 0, r.W*r.H*2)
 	alpha := make([]byte, 0, (r.W*r.H+1)/2)
 
@@ -566,7 +566,7 @@ func encodeRGB565A4(img image.Image, r Rect) ([]byte, []byte) {
 }
 
 // RGB565 + A8 (separate alpha bitstream)
-func encodeRGB565A8(img image.Image, r Rect) ([]byte, []byte) {
+func encodeRGB565A8(img image.Image, r SpriteRect) ([]byte, []byte) {
 	pixels := make([]byte, 0, r.W*r.H*2)
 	alpha := make([]byte, 0, r.W*r.H)
 
@@ -584,7 +584,7 @@ func encodeRGB565A8(img image.Image, r Rect) ([]byte, []byte) {
 }
 
 // RGBA8888
-func encodeRGBA8888(img image.Image, r Rect) []byte {
+func encodeRGBA8888(img image.Image, r SpriteRect) []byte {
 	pixels := make([]byte, 0, r.W*r.H*4)
 
 	for y := 0; y < r.H; y++ {
