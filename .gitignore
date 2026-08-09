@@ -6,6 +6,7 @@
 /output
 /compiler/output
 /vendor
+/**/testdata
 
 #except the following files
 !*.cpp
