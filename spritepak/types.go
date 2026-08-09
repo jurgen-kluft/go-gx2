@@ -2,8 +2,6 @@ package spritepack
 
 import (
 	"github.com/jurgen-kluft/go-gx2/common"
-
-	_ "image/png"
 )
 
 type SpritePack struct {

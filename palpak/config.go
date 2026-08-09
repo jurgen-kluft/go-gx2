@@ -38,7 +38,7 @@ func LoadConfig(jsonPath string) (*PalPackCfg, error) {
 	return &config, nil
 }
 
-func loadPaletteFile(path string) (*PalFileCfg, error) {
+func LoadPaletteFile(path string) (*PalFileCfg, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func loadPaletteFile(path string) (*PalFileCfg, error) {
 	return &cfg, nil
 }
 
-func loadPalette(path string) ([]common.ColorRGBA, error) {
+func LoadPalette(path string) ([]common.ColorRGBA, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
