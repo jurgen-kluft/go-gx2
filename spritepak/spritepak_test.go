@@ -3,6 +3,8 @@ package spritepack
 import (
 	"bytes"
 	"testing"
+
+	"github.com/jurgen-kluft/go-gx2/common"
 )
 
 func equalUint32Slice(a, b []uint32) bool {
@@ -54,16 +56,16 @@ func TestWriteReadPackRoundTrip(t *testing.T) {
 		{
 			Width:       16,
 			Height:      8,
-			PixelFormat: FMT_PIXEL_RGB565,
-			AlphaFormat: FMT_ALPHA_A4,
+			PixelFormat: common.FMT_PIXEL_RGB565,
+			AlphaFormat: common.FMT_ALPHA_A4,
 			PixelData:   []byte{1, 2, 3, 4, 5, 6},
 			AlphaData:   []byte{0x3C, 0xC3},
 		},
 		{
 			Width:       4,
 			Height:      4,
-			PixelFormat: FMT_PIXEL_I8,
-			AlphaFormat: FMT_ALPHA_NONE,
+			PixelFormat: common.FMT_PIXEL_I8,
+			AlphaFormat: common.FMT_ALPHA_NONE,
 			PixelData:   []byte{0, 1, 2, 3, 4, 5, 6, 7},
 			AlphaData:   nil,
 		},
@@ -119,8 +121,8 @@ func TestWriteReadPackLargePayload(t *testing.T) {
 		{
 			Width:       512,
 			Height:      512,
-			PixelFormat: FMT_PIXEL_RGB888,
-			AlphaFormat: FMT_ALPHA_A8,
+			PixelFormat: common.FMT_PIXEL_RGB888,
+			AlphaFormat: common.FMT_ALPHA_A8,
 			PixelData:   pixelData,
 			AlphaData:   alphaData,
 		},

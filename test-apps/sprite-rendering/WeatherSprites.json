@@ -1,0 +1,460 @@
+{
+  "version": 1,
+  "image": {
+    "name": "WeatherSprites",
+    "w": 1751,
+    "h": 592
+  },
+  "sprites": [
+    {
+      "alpha": 1,
+      "name": "some.clouds.rain",
+      "rect": {
+        "x": 279,
+        "y": 45,
+        "w": 81,
+        "h": 90
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "many.clouds.rain",
+      "rect": {
+        "x": 402,
+        "y": 42,
+        "w": 94,
+        "h": 98
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "moon.many.clouds.rain",
+      "rect": {
+        "x": 527,
+        "y": 39,
+        "w": 108,
+        "h": 101
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "moon.some.clouds.rain",
+      "rect": {
+        "x": 674,
+        "y": 41,
+        "w": 91,
+        "h": 85
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds.rain",
+      "rect": {
+        "x": 812,
+        "y": 49,
+        "w": 91,
+        "h": 88
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "moon.clouds",
+      "rect": {
+        "x": 947,
+        "y": 40,
+        "w": 91,
+        "h": 71
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds.thunder.rain",
+      "rect": {
+        "x": 1075,
+        "y": 46,
+        "w": 95,
+        "h": 97
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "moon.stars",
+      "rect": {
+        "x": 1204,
+        "y": 41,
+        "w": 67,
+        "h": 69
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds.rainbow",
+      "rect": {
+        "x": 1314,
+        "y": 39,
+        "w": 130,
+        "h": 72
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "sun.clouds",
+      "rect": {
+        "x": 1484,
+        "y": 40,
+        "w": 95,
+        "h": 71
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds",
+      "rect": {
+        "x": 1621,
+        "y": 45,
+        "w": 95,
+        "h": 68
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds.wind",
+      "rect": {
+        "x": 274,
+        "y": 206,
+        "w": 94,
+        "h": 72
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds.wind.rain",
+      "rect": {
+        "x": 404,
+        "y": 201,
+        "w": 91,
+        "h": 78
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "sun.wind",
+      "rect": {
+        "x": 539,
+        "y": 195,
+        "w": 95,
+        "h": 79
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "moon.clouds.fog",
+      "rect": {
+        "x": 681,
+        "y": 191,
+        "w": 95,
+        "h": 77
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "wind",
+      "rect": {
+        "x": 815,
+        "y": 207,
+        "w": 80,
+        "h": 66
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "sun.clouds.fog",
+      "rect": {
+        "x": 944,
+        "y": 189,
+        "w": 89,
+        "h": 80
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "moon.fog",
+      "rect": {
+        "x": 1080,
+        "y": 187,
+        "w": 88,
+        "h": 80
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds.fog",
+      "rect": {
+        "x": 1201,
+        "y": 194,
+        "w": 96,
+        "h": 76
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "sun.wind",
+      "rect": {
+        "x": 1332,
+        "y": 185,
+        "w": 104,
+        "h": 81
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "sun.clouds.thunder.rain",
+      "rect": {
+        "x": 1480,
+        "y": 188,
+        "w": 89,
+        "h": 87
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "moon.clouds.thunder.rain",
+      "rect": {
+        "x": 1615,
+        "y": 183,
+        "w": 107,
+        "h": 93
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds.sleet",
+      "rect": {
+        "x": 271,
+        "y": 336,
+        "w": 96,
+        "h": 69
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds.hail",
+      "rect": {
+        "x": 412,
+        "y": 334,
+        "w": 72,
+        "h": 84
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "sun.clouds.snow",
+      "rect": {
+        "x": 536,
+        "y": 327,
+        "w": 90,
+        "h": 81
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "moon.clouds.snow",
+      "rect": {
+        "x": 678,
+        "y": 322,
+        "w": 87,
+        "h": 85
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "sun.clouds.hail",
+      "rect": {
+        "x": 816,
+        "y": 325,
+        "w": 83,
+        "h": 94
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds.snow",
+      "rect": {
+        "x": 954,
+        "y": 329,
+        "w": 83,
+        "h": 79
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "clouds.sleet",
+      "rect": {
+        "x": 1084,
+        "y": 328,
+        "w": 84,
+        "h": 90
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "sunny",
+      "rect": {
+        "x": 1215,
+        "y": 329,
+        "w": 92,
+        "h": 65
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "sun.clouds.sleet",
+      "rect": {
+        "x": 1335,
+        "y": 322,
+        "w": 99,
+        "h": 89
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "snowflake",
+      "rect": {
+        "x": 1478,
+        "y": 332,
+        "w": 58,
+        "h": 62
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "humidity",
+      "rect": {
+        "x": 1573,
+        "y": 328,
+        "w": 46,
+        "h": 66
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "warm",
+      "rect": {
+        "x": 279,
+        "y": 467,
+        "w": 79,
+        "h": 72
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "cold",
+      "rect": {
+        "x": 410,
+        "y": 467,
+        "w": 76,
+        "h": 72
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "night.clouds",
+      "rect": {
+        "x": 529,
+        "y": 459,
+        "w": 105,
+        "h": 50
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "night.moon.clouds.rain",
+      "rect": {
+        "x": 674,
+        "y": 453,
+        "w": 93,
+        "h": 84
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "night.moon.clouds.wind",
+      "rect": {
+        "x": 812,
+        "y": 452,
+        "w": 92,
+        "h": 80
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "night.moon.clouds.sleet",
+      "rect": {
+        "x": 947,
+        "y": 448,
+        "w": 99,
+        "h": 85
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "night.thunder",
+      "rect": {
+        "x": 1086,
+        "y": 455,
+        "w": 82,
+        "h": 75
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "night.moon.clouds.thunder.rain",
+      "rect": {
+        "x": 1208,
+        "y": 453,
+        "w": 105,
+        "h": 91
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "night.moon.clouds.snow",
+      "rect": {
+        "x": 1337,
+        "y": 447,
+        "w": 99,
+        "h": 86
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "celcius",
+      "rect": {
+        "x": 1477,
+        "y": 461,
+        "w": 93,
+        "h": 74
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "umbrella",
+      "rect": {
+        "x": 1628,
+        "y": 459,
+        "w": 91,
+        "h": 101
+      }
+    },
+    {
+      "alpha": 1,
+      "name": "sun",
+      "rect": {
+        "x": 1654,
+        "y": 327,
+        "w": 64,
+        "h": 67
+      }
+    }
+  ]
+}

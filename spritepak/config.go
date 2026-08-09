@@ -3,8 +3,9 @@ package spritepack
 import (
 	"encoding/json"
 	"fmt"
-	_ "image/png"
 	"os"
+
+	"github.com/jurgen-kluft/go-gx2/common"
 )
 
 //
@@ -27,9 +28,9 @@ type SpritesFileCfg struct {
 }
 
 type SpriteEntryCfg struct {
-	Name  string `json:"name"`
-	Alpha int    `json:"alpha"`
-	Rect  *Rect  `json:"rect,omitempty"`
+	Name  string       `json:"name"`
+	Alpha int          `json:"alpha"`
+	Rect  *common.Rect `json:"rect,omitempty"`
 }
 
 func LoadConfig(jsonPath string) (*SpritePackCfg, error) {
@@ -71,12 +72,12 @@ func loadSpritesFile(path string) (*SpritesFileCfg, error) {
 	return &cfg, nil
 }
 
-func loadPalette(path string) ([]ColorRGBA, error) {
+func loadPalette(path string) ([]common.ColorRGBA, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var palette []ColorRGBA
+	var palette []common.ColorRGBA
 	if err := json.Unmarshal(data, &palette); err != nil {
 		return nil, err
 	}

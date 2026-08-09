@@ -1,4 +1,4 @@
-package spritepack
+package common
 
 import (
 	"fmt"
@@ -6,8 +6,6 @@ import (
 	_ "image/png"
 	"math"
 	"sort"
-
-	"github.com/jurgen-kluft/go-gx2/common"
 )
 
 //
@@ -16,7 +14,7 @@ import (
 
 type paletteResult struct {
 	indexedPixels []byte // len = w*h
-	paletteRGBA   common.PaletteRGBA
+	paletteRGBA   PaletteRGBA
 }
 
 // ColorNode represents a cluster of colors
@@ -298,13 +296,13 @@ func quantPNN(nodes []ColorNode, targetPaletteSize int) []ColorNode {
 	return palette
 }
 
-func buildIndexed8Palette(img image.Image, r common.Rect, pal common.PaletteRGBA) (pixels []byte, ok bool) {
+func BuildIndexed8Palette(img image.Image, r Rect, pal PaletteRGBA) (pixels []byte, ok bool) {
 
 	// Step 1: Convert the image to the rectangle defined size with RGB16 format
 	rgb565Img := make([]uint16, 0, r.W*r.H*2)
 	for y := 0; y < r.H; y++ {
 		for x := 0; x < r.W; x++ {
-			pixelColor := common.NewColorFromImageColor(img.At(r.X+x, r.Y+y))
+			pixelColor := NewColorFromImageColor(img.At(r.X+x, r.Y+y))
 			rgb565Img = append(rgb565Img, pixelColor.ToRGB16())
 		}
 	}
@@ -374,13 +372,13 @@ func buildIndexed8Palette(img image.Image, r common.Rect, pal common.PaletteRGBA
 	return indexedImage, true
 }
 
-func buildPalette(img image.Image) (pal common.PaletteRGBA, err error) {
+func BuildPalette(img image.Image) (pal PaletteRGBA, err error) {
 
 	// Step 1: Convert the image to the rectangle defined size with RGB565 format
 	rgb565Img := make([]uint16, 0, img.Bounds().Dx()*img.Bounds().Dy()*2)
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
-			pixelColor := common.NewColorFromImageColor(img.At(img.Bounds().Min.X+x, img.Bounds().Min.Y+y))
+			pixelColor := NewColorFromImageColor(img.At(img.Bounds().Min.X+x, img.Bounds().Min.Y+y))
 			rgb565Img = append(rgb565Img, pixelColor.ToRGB16())
 		}
 	}
@@ -395,9 +393,9 @@ func buildPalette(img image.Image) (pal common.PaletteRGBA, err error) {
 		return nil, fmt.Errorf("empty image or palette nodes")
 	}
 
-	pal = make([]common.ColorRGBA, len(paletteNodes))
+	pal = make([]ColorRGBA, len(paletteNodes))
 	for i, node := range paletteNodes {
-		pal[i] = common.NewColorFromR8G8B8A8(255, uint8(node.R), uint8(node.G), uint8(node.B))
+		pal[i] = NewColorFromR8G8B8A8(255, uint8(node.R), uint8(node.G), uint8(node.B))
 	}
 
 	return pal, nil

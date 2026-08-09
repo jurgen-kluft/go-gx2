@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Palette Editor</title>
+  <style>
+    :root {
+      --bg: #0f1319;
+      --panel: #18202b;
+      --panel-2: #223244;
+      --line: #33485f;
+      --text: #e7edf5;
+      --muted: #9bb0c5;
+      --accent: #43c4e9;
+      --ok: #79d39d;
+      --warn: #f6b26b;
+      --bad: #f47f7f;
+      --checker-a: #182532;
+      --checker-b: #1e2c3b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      background: radial-gradient(circle at top, rgba(67, 196, 233, 0.14), transparent 30%), var(--bg);
+      color: var(--text);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(320px, 380px) 1fr;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      padding: 1.1rem;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(14, 20, 27, 0.9);
+      backdrop-filter: blur(14px);
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+
+    .panel {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 0.9rem;
+      background: linear-gradient(180deg, rgba(34, 50, 68, 0.9), rgba(24, 32, 43, 0.9));
+      padding: 0.9rem;
+      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.2);
+    }
+
+    h1,
+    h2 {
+      margin: 0 0 0.65rem;
+      letter-spacing: 0.02em;
+    }
+
+    h1 {
+      font-size: 1.18rem;
+    }
+
+    h2 {
+      font-size: 0.95rem;
+      color: #d2deea;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.38;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--text);
+      border-radius: 0.55rem;
+      padding: 0.45rem 0.72rem;
+      cursor: pointer;
+      transition: border-color 120ms ease, transform 120ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      color: var(--muted);
+    }
+
+    input[type="number"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: rgba(16, 24, 32, 0.7);
+      color: var(--text);
+      border-radius: 0.5rem;
+      padding: 0.45rem 0.55rem;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .status {
+      min-height: 1.4rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .status.ok {
+      color: var(--ok);
+    }
+
+    .status.warn {
+      color: var(--warn);
+    }
+
+    .status.bad {
+      color: var(--bad);
+    }
+
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+      gap: 0.45rem;
+      max-height: 320px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .swatch {
+      border-radius: 0.55rem;
+      min-height: 58px;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .swatch span {
+      position: absolute;
+      inset: auto 0 0 0;
+      background: rgba(0, 0, 0, 0.46);
+      color: #e8edf2;
+      font-size: 0.72rem;
+      padding: 0.2rem 0.28rem;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+    }
+
+    .swatch.selected {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px rgba(67, 196, 233, 0.35), 0 0 0 2px rgba(67, 196, 233, 0.2);
+    }
+
+    .main {
+      position: relative;
+      padding: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      overflow: hidden;
+    }
+
+    .topbar {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 0.9rem;
+      background: rgba(16, 22, 30, 0.78);
+      padding: 0.75rem 0.95rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      min-height: 64px;
+    }
+
+    .view-mode {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .popup-panel {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 0.65rem;
+      background: rgba(11, 16, 23, 0.9);
+      padding: 0.7rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .popup-panel.hidden {
+      display: none;
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    .panel-title button {
+      padding: 0.2rem 0.46rem;
+      border-radius: 0.45rem;
+    }
+
+    .summary {
+      min-width: 0;
+    }
+
+    .summary strong,
+    .summary span {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .workspace {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 0.9rem;
+      overflow: auto;
+      background:
+        linear-gradient(45deg, var(--checker-a) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--checker-a) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--checker-a) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--checker-a) 75%),
+        var(--checker-b);
+      background-size: 28px 28px;
+      background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+    }
+
+    .workspace.drop {
+      box-shadow: inset 0 0 0 2px rgba(67, 196, 233, 0.9);
+    }
+
+    .canvas-stage {
+      padding: 1rem;
+      min-width: 100%;
+      min-height: 100%;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+
+    .workspace-view {
+      min-width: 100%;
+      min-height: 100%;
+    }
+
+    .workspace-view.hidden {
+      display: none;
+    }
+
+    .editor-stage {
+      padding: 1rem;
+      min-width: 100%;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .editor-stage h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+      gap: 0.5rem;
+      overflow: auto;
+      padding: 0.2rem 0.2rem 0.2rem 0;
+      flex: 1;
+      min-height: 220px;
+    }
+
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border-radius: 0.45rem;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+      outline: none;
+      background: rgba(8, 12, 16, 0.6);
+    }
+
+    .floating {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.6rem;
+      background: rgba(10, 15, 21, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 0.75rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .floating .zoom-buttons {
+      display: flex;
+      gap: 0.45rem;
+    }
+
+    #viewModeButton.active {
+      border-color: var(--accent);
+      background: rgba(67, 196, 233, 0.2);
+    }
+
+    @media (max-width: 980px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        max-height: 50vh;
+      }
+
+      .floating {
+        top: auto;
+        bottom: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <section class="panel stack">
+        <h1>Palette Tool</h1>
+        <p class="subtle">Load a PNG, extract colors, and build a uint16-per-pixel indexed representation for efficient palette operations.</p>
+      </section>
+
+      <section class="panel stack">
+        <div class="row">
+          <button id="currentButton" type="button">Current</button>
+          <button id="quantizePanelButton" type="button" disabled>Quantize</button>
+        </div>
+
+        <div id="currentPanel" class="popup-panel hidden" aria-label="Current image and palette actions">
+          <div class="panel-title">
+            <span>Current</span>
+            <button id="closeCurrentPanelButton" type="button">Close</button>
+          </div>
+          <input id="imageInput" type="file" accept="image/png,.png" hidden>
+          <input id="paletteFileInput" type="file" accept="application/json,.json" hidden>
+          <div class="row">
+            <button id="chooseImageFileButton" type="button">Choose Image File</button>
+            <button id="choosePaletteFileButton" type="button" disabled>Choose Palette File</button>
+          </div>
+          <div class="field">
+            <label for="colorLimitInput">Palette limit (1 - 65535)</label>
+            <input id="colorLimitInput" type="number" min="1" max="65535" value="65535">
+          </div>
+          <div class="row">
+            <button id="extractButton" type="button" disabled>Extract Palette</button>
+            <button id="reindexButton" type="button" disabled>Re-index From Source</button>
+            <button id="savePaletteButton" type="button" disabled>Save Palette</button>
+            <button id="saveRgbaPngButton" type="button" disabled>Save RGBA PNG</button>
+          </div>
+        </div>
+
+        <div id="quantizePanel" class="popup-panel hidden" aria-label="Quantization actions">
+          <div class="panel-title">
+            <span>Quantize</span>
+            <button id="closeQuantizePanelButton" type="button">Close</button>
+          </div>
+          <div class="field">
+            <label for="quantizeCountInput">Quantize Target Colors</label>
+            <input id="quantizeCountInput" type="number" min="2" max="512" value="256">
+            <input id="quantizeCountRange" type="range" min="2" max="512" value="256" step="1">
+          </div>
+          <div class="row">
+            <button id="quantizeButton" type="button" disabled>Run Quantization</button>
+          </div>
+        </div>
+
+        <div id="status" class="status">Load a PNG to begin.</div>
+      </section>
+
+      <section class="panel stack">
+        <h2>View Status</h2>
+        <p id="paletteMeta" class="subtle">Switch between palette editing and image preview.</p>
+      </section>
+
+      <section class="panel stack">
+        <h2>Palette Editor</h2>
+        <p id="selectionSummary" class="subtle">No color selected.</p>
+        <div class="field">
+          <label for="editR">Selected RGB</label>
+          <div class="row">
+            <input id="editR" type="number" min="0" max="255" value="0">
+            <input id="editG" type="number" min="0" max="255" value="0">
+            <input id="editB" type="number" min="0" max="255" value="0">
+          </div>
+        </div>
+        <div class="row">
+          <button id="applyColorButton" type="button" disabled>Apply RGB</button>
+          <button id="mergeButton" type="button" disabled>Merge Selected + Reindex</button>
+        </div>
+        <div class="field">
+          <label for="sortModeSelect">Sort Palette</label>
+          <select id="sortModeSelect">
+            <option value="hue">Hue</option>
+            <option value="luminance">Luminance</option>
+            <option value="usage" selected>Usage</option>
+            <option value="rgb">RGB</option>
+          </select>
+        </div>
+        <div class="row">
+          <button id="sortPaletteButton" type="button" disabled>Sort + Reindex</button>
+        </div>
+        <p class="subtle">Click swatches to select. Use Cmd/Ctrl+Click for multi-select before merging.</p>
+      </section>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="summary">
+          <strong id="imageSummary">No image loaded</strong>
+          <span id="actionSummary" class="subtle">Load a PNG image to extract a working palette.</span>
+        </div>
+      </div>
+
+      <div class="workspace" id="workspace">
+        <div id="editorWorkspace" class="workspace-view">
+          <div class="editor-stage">
+            <h2>Main Palette Workspace</h2>
+            <p id="editorWorkspaceSummary" class="subtle">Edit the palette here, then switch to Image or Alpha to inspect the result.</p>
+            <div id="paletteGridMain" class="editor-grid" aria-label="Main palette editor swatches"></div>
+          </div>
+        </div>
+        <div id="previewWorkspace" class="workspace-view hidden">
+          <div class="canvas-stage">
+            <canvas id="canvas" width="960" height="640" tabindex="0" aria-label="Image preview canvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="floating">
+    <select id="zoomSelect" aria-label="Zoom level">
+      <option value="0.5">50%</option>
+      <option value="1" selected>100%</option>
+      <option value="2">200%</option>
+      <option value="4">400%</option>
+      <option value="8">800%</option>
+    </select>
+    <div class="zoom-buttons">
+      <button id="zoomOutButton" type="button">-</button>
+      <button id="zoomInButton" type="button">+</button>
+      <button id="zoomResetButton" type="button">Reset</button>
+    </div>
+    <button id="viewModeButton" type="button">View: Palette</button>
+  </div>
+
+  <script>
+    window.__paletteBootErrors = [];
+    window.addEventListener('error', function onPaletteToolError(event) {
+      var message = event && event.message ? event.message : 'Unknown startup error';
+      window.__paletteBootErrors.push(message);
+      var statusEl = document.getElementById('status');
+      if (statusEl) {
+        statusEl.textContent = 'Startup error: ' + message;
+        statusEl.className = 'status bad';
+      }
+    });
+  </script>
+  <script defer src="./palette-editor/state.js"></script>
+  <script defer src="./palette-editor/palette-utils.js"></script>
+  <script defer src="./palette-editor/image-index.js"></script>
+  <script defer src="./palette-editor/quantizer.js"></script>
+  <script defer src="./palette-editor/app.js"></script>
+</body>
+</html>

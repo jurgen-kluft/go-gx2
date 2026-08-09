@@ -1,0 +1,63 @@
+{
+  "sprites": [
+    {
+      "image_file": "WeatherSprites.png",
+      "sprites_file": "WeatherSprites.json"
+    },
+    {
+      "image_file": "lightbulb ON 79x128.png",
+      "sprites_file": "lightbulb ON 79x128.json"
+    },
+    {
+      "image_file": "lightbulb OFF 79x128.png",
+      "sprites_file": "lightbulb OFF 79x128.json"
+    }
+  ],
+  "mapping": {
+    "celcius": 0,
+    "clouds.fog": 1,
+    "clouds.hail": 2,
+    "clouds.rain": 3,
+    "clouds.rainbow": 4,
+    "clouds.sleet": 5,
+    "clouds.snow": 6,
+    "clouds.thunder.rain": 7,
+    "clouds.wind.rain": 8,
+    "clouds.wind": 9,
+    "clouds": 10,
+    "cold": 11,
+    "humidity": 12,
+    "many.clouds.rain": 13,
+    "moon.clouds.fog": 14,
+    "moon.clouds.snow": 15,
+    "moon.clouds.thunder.rain": 16,
+    "moon.clouds": 17,
+    "moon.fog": 18,
+    "moon.many.clouds.rain": 19,
+    "moon.some.clouds.rain": 20,
+    "moon.stars": 21,
+    "night.clouds": 22,
+    "night.moon.clouds.rain": 23,
+    "night.moon.clouds.sleet": 24,
+    "night.moon.clouds.snow": 25,
+    "night.moon.clouds.thunder.rain": 26,
+    "night.moon.clouds.wind": 27,
+    "night.thunder": 28,
+    "snowflake": 29,
+    "some.clouds.rain": 30,
+    "sun.clouds.fog": 31,
+    "sun.clouds.hail": 32,
+    "sun.clouds.sleet": 33,
+    "sun.clouds.snow": 34,
+    "sun.clouds.thunder.rain": 35,
+    "sun.clouds": 36,
+    "sun.wind": 37,
+    "sun": 38,
+    "sunny": 39,
+    "umbrella": 40,
+    "warm": 41,
+    "wind": 42,
+    "lightbulb.on": 43,
+    "lightbulb.off": 44
+  }
+}

@@ -6,21 +6,21 @@ Work is not saved automatically. Download the generated PNG or JSON before closi
 
 | Tool | Use it for | Input | Output |
 | --- | --- | --- | --- |
-| [Palette Tool](PaletteTool.html) | Extracting, editing, reducing, and applying RGB palettes | PNG, palette JSON | `<name>.palette.json`, `<name>.indexed.png` |
+| [Palette Editor](PaletteEditor.html) | Extracting, editing, reducing, and applying RGB palettes | PNG, palette JSON | `<name>.palette.json`, `<name>.rgba.png` |
 | [Sprite Rectangle Editor](SpriteEditor.html) | Defining sprite rectangles on an image | PNG/JPG, sprite JSON | `<name>.sprites.json` |
-| [Image Tool](ImageTool.html) | Resizing, cropping, removing backgrounds, and converting anti-aliasing to alpha | PNG/JPG | `<name>.transparent.png` |
+| [Image Editor](ImageEditor.html) | Resizing, cropping, removing backgrounds, and converting anti-aliasing to alpha | PNG/JPG | `<name>.transparent.png` |
 
-## Palette Tool
+## Palette Editor
 
-Open [PaletteTool.html](PaletteTool.html) to extract a palette from a PNG, edit that palette, and re-index the image to the edited colors. The scripts in `palette-tool/` are part of this tool, not a separate editor.
+Open [PaletteEditor.html](PaletteEditor.html) to extract a palette from a PNG, edit that palette, and re-index the image to the edited colors. The scripts in `palette-editor/` are part of this tool, not a separate editor.
 
 ### Basic workflow
 
 1. Select **Current**, then **Choose Image File** and load a PNG.
 2. Set **Palette limit** and select **Extract Palette**. The limit may be from 1 to 65,535 colors.
 3. Optionally edit, merge, sort, or quantize the palette.
-4. Switch between the palette workspace and image preview to inspect the result.
-5. Select **Save Palette** or **Save Indexed PNG**.
+4. Switch among the Palette, Image, and Alpha views to inspect the result.
+5. Select **Save Palette** or **Save RGBA PNG**.
 
 The palette editor supports the following operations:
 
@@ -28,7 +28,7 @@ The palette editor supports the following operations:
 - Sort by usage, hue, luminance, or RGB. Sorting also updates the image indices.
 - Re-index the source image to the nearest colors in the current palette.
 - Quantize the source image to between 2 and 512 colors.
-- Preview at 50%, 100%, 200%, 400%, or 800% zoom.
+- Preview the reduced-color image or source alpha channel at 50%, 100%, 200%, 400%, or 800% zoom.
 
 ### Palette JSON
 
@@ -46,7 +46,9 @@ The palette editor supports the following operations:
 
 ### Alpha behavior
 
-Palette extraction and nearest-color matching use RGB only; source alpha is ignored. **Save Indexed PNG** renders every output pixel as fully opaque. Use the Image Tool when alpha must be cleaned up, and keep the original alpha-bearing image if it is needed later in the asset pipeline.
+Palette extraction, quantization, and nearest-color matching use RGB only. The Image view and **Save RGBA PNG** combine the reduced palette RGB with each pixel's original alpha byte, including fully transparent and partially transparent pixels. The Alpha view displays that source channel as opaque grayscale: alpha 0 is black and alpha 255 is white.
+
+**Save RGBA PNG** uses the browser's native canvas PNG encoder and writes `<image-name>.rgba.png`. It does not produce a palette-indexed PNG.
 
 ## Sprite Rectangle Editor
 
@@ -109,9 +111,9 @@ Saved files use this structure:
 
 The loader requires a top-level `sprites` array. Each sprite must contain a `rect` object with numeric `x`, `y`, `w`, and `h` values; legacy flattened rectangle fields are not accepted. Missing names receive defaults. Alpha accepts `0` (None), `1` (Mask), `2` (A2), `4` (A4), or `8` (A8), and defaults to None. The optional `image.path` or `image.dataUrl` fields can be used when loading a sprite list; otherwise, load the source image separately.
 
-## Image Tool
+## Image Editor
 
-Open [ImageTool.html](ImageTool.html) to resize or crop an image, remove connected background regions, or convert anti-aliased artwork into an alpha-masked image.
+Open [ImageEditor.html](ImageEditor.html) to resize or crop an image, remove connected background regions, or convert anti-aliased artwork into an alpha-masked image.
 
 ### Resize workflow
 
@@ -161,8 +163,8 @@ The operation changes every nontransparent pixel to the opaque RGB color and der
 
 For an asset that needs all three operations:
 
-1. Resize, crop, or clean the source image with the Image Tool and save a PNG.
-2. Use the Palette Tool when an RGB palette or opaque indexed preview is needed.
+1. Resize, crop, or clean the source image with the Image Editor and save a PNG.
+2. Use the Palette Editor when an RGB palette or opaque indexed preview is needed.
 3. Define named sprite bounds with the Sprite Rectangle Editor.
 4. Preserve the downloaded source and JSON files; browser sessions are not project files.
 

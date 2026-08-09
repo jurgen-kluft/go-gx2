@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "image": {
+    "name": "lightbuld ON 79x128.png",
+    "path": "",
+    "width": 79,
+    "height": 128
+  },
+  "sprites": [
+    {
+      "name": "lightbulb.on",
+      "alpha": 1,
+      "rect": {
+        "x": 1,
+        "y": 1,
+        "w": 77,
+        "h": 126
+      }
+    }
+  ]
+}
