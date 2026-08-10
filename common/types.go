@@ -16,6 +16,7 @@ const (
 type PixelFormat uint8
 
 const (
+	FMT_PIXEL_NONE   PixelFormat = 0x00 // No pixel data
 	FMT_PIXEL_RGB565 PixelFormat = 0x01 // RGB565 (16-bit) with no alpha
 	FMT_PIXEL_RGB888 PixelFormat = 0x02 // RGB888 (24-bit)
 	FMT_PIXEL_I8     PixelFormat = 0x03 // Indexed 8-bit
@@ -24,8 +25,9 @@ const (
 type PaletteFormat uint8
 
 const (
-	FMT_PALETTE_RGB888 PaletteFormat = 0x01 // RGBB888 (24-bit)
-	FMT_PALETTE_RGB565 PaletteFormat = 0x02 // RGB565 (16-bit)
+	FMT_PALETTE_RGB565   PaletteFormat = 0x01 // RGB565 (16-bit), no alpha
+	FMT_PALETTE_RGB888   PaletteFormat = 0x02 // RGBB888 (32-bit), alpha is ignored
+	FMT_PALETTE_RGBA8888 PaletteFormat = 0x03 // RGBA8888 (32-bit), alpha is used
 )
 
 type Rect struct {
@@ -76,7 +78,19 @@ func PixelFormatFromString(s string) (PixelFormat, error) {
 	case "I8":
 		return FMT_PIXEL_I8, nil
 	}
-	return 0, fmt.Errorf("unsupported format: %s", s)
+	return FMT_PIXEL_RGB565, fmt.Errorf("unsupported format: %s", s)
+}
+
+func PaletteFormatFromString(s string) (PaletteFormat, error) {
+	switch s {
+	case "RGB888":
+		return FMT_PALETTE_RGB888, nil
+	case "RGB565":
+		return FMT_PALETTE_RGB565, nil
+	case "RGBA8888":
+		return FMT_PALETTE_RGBA8888, nil
+	}
+	return FMT_PALETTE_RGB888, fmt.Errorf("unsupported palette format: %s", s)
 }
 
 func (pf PixelFormat) String() string {
@@ -106,5 +120,18 @@ func (af AlphaFormat) String() string {
 		return "A8"
 	default:
 		return fmt.Sprintf("Unknown(%d)", af)
+	}
+}
+
+func (pf PaletteFormat) String() string {
+	switch pf {
+	case FMT_PALETTE_RGB888:
+		return "RGB888"
+	case FMT_PALETTE_RGB565:
+		return "RGB565"
+	case FMT_PALETTE_RGBA8888:
+		return "RGBA8888"
+	default:
+		return fmt.Sprintf("Unknown(%d)", pf)
 	}
 }

@@ -13,12 +13,16 @@ import (
 //
 
 type PalPackCfg struct {
-	Palettes []PalEntryCfg `json:"palettes"`
+	Palettes []PalEntryCfg  `json:"palettes"`
+	Mapping  map[string]int `json:"palettes_mapping"`
 }
 
 type PalEntryCfg struct {
-	ImageFile   string `json:"image_file"`
-	PaletteFile string `json:"palette_file,omitempty"`
+	Name         string `json:"name"`
+	ImageFile    string `json:"image_file"`
+	PaletteFile  string `json:"palette_file,omitempty"`
+	PaletteDepth int8   `json:"palette_depth,omitempty"`
+	PaletteAlpha bool   `json:"palette_alpha,omitempty"`
 }
 
 type PalFileCfg struct {

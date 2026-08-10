@@ -39,12 +39,15 @@ func TestBuildPaletteUsesStraightRGB(t *testing.T) {
 	img.SetNRGBA(1, 0, color.NRGBA{R: 255, G: 0, B: 0, A: 128})
 	img.SetNRGBA(2, 0, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
 
-	palette, err := BuildPaletteFromImage(img)
-	if err != nil {
-		t.Fatalf("buildPalette failed: %v", err)
+	palette, colorMap, ok := BuildPaletteFromImage(img)
+	if !ok {
+		t.Fatalf("buildPalette failed")
 	}
 	if len(palette) != 1 {
 		t.Fatalf("palette length: got %d, want 1", len(palette))
+	}
+	if len(colorMap) != 1 {
+		t.Fatalf("colorMap length: got %d, want 1", len(colorMap))
 	}
 
 	r, g, b, a := palette[0].ToR8G8B8A8()

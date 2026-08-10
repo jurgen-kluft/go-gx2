@@ -9,11 +9,12 @@ type SpritePack struct {
 }
 
 type Sprite struct {
-	Width       uint16
-	Height      uint16
-	PixelFormat common.PixelFormat
-	AlphaFormat common.AlphaFormat
-	Reserved    uint16
-	PixelData   []byte
-	AlphaData   []byte
+	Width        uint16
+	Height       uint16
+	PixelFormat  common.PixelFormat
+	AlphaFormat  common.AlphaFormat
+	Reserved     uint8
+	PaletteIndex uint8
+	PixelData    []byte
+	AlphaData    []byte
 }

@@ -13,10 +13,10 @@ func TestPaletteEditorExportDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load image: %v", err)
 	}
-	colorCount := ImageRGBColorCount(img)
-	t.Logf("decoded %T with %d unique RGB colors", img, colorCount)
-	if colorCount != 256 {
-		t.Fatalf("Palette Editor export RGB color count: got %d, want 256", colorCount)
+	_, colorMap, _ := BuildPaletteFromImage(img)
+	t.Logf("decoded %T with %d unique RGB colors", img, len(colorMap))
+	if len(colorMap) != 256 {
+		t.Fatalf("Palette Editor export RGB color count: got %d, want 256", len(colorMap))
 	}
 	if !ImageIsIndexed(img) {
 		t.Fatal("Palette Editor export has more than 256 RGB colors")

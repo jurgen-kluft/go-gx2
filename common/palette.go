@@ -372,39 +372,38 @@ func BuildIndexed8Palette(img image.Image, r Rect, pal PaletteRGBA) (pixels []by
 	return indexedImage, true
 }
 
-func BuildPaletteFromImage(img image.Image) (pal PaletteRGBA, err error) {
+func BuildPaletteFromImage(img image.Image) (pal PaletteRGBA, colorMap map[uint32]uint8, ok bool) {
+	colorMap = make(map[uint32]uint8)
+	var palette []ColorRGBA
 
-	// Step 1: Convert the image to the rectangle defined size with RGB565 format
-	rgb565Img := make([]uint16, 0, img.Bounds().Dx()*img.Bounds().Dy()*2)
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			pixelColor := NewColorFromImageColor(img.At(img.Bounds().Min.X+x, img.Bounds().Min.Y+y))
-			rgb565Img = append(rgb565Img, pixelColor.ToRGB16())
+	H := img.Bounds().Dy()
+	W := img.Bounds().Dx()
+
+	for y := 0; y < H; y++ {
+		for x := 0; x < W; x++ {
+			pixelColor := NewColorFromImageColor(img.At(x, y))
+			rgb32 := pixelColor.ToRGB32()
+
+			if idx, exists := colorMap[rgb32]; !exists {
+				if len(palette) >= 256 {
+					return nil, nil, false
+				}
+				idx = uint8(len(palette))
+				colorMap[rgb32] = idx
+				palette = append(palette, pixelColor)
+			}
 		}
 	}
 
-	// Step 2: Build a histogram of unique colors in the RGB565 data
-	histogram := quantBuildHistogram(rgb565Img)
+	return palette, colorMap, true
 
-	// Step 3: Reduce the histogram to a maximum of 256 colors using PNN
-	paletteNodes := quantPNN(histogram, 256)
-
-	if len(rgb565Img) == 0 || len(paletteNodes) == 0 {
-		return nil, fmt.Errorf("empty image or palette nodes")
-	}
-
-	pal = make([]ColorRGBA, len(paletteNodes))
-	for i, node := range paletteNodes {
-		pal[i] = NewColorFromR8G8B8A8(255, uint8(node.R), uint8(node.G), uint8(node.B))
-	}
-
-	return pal, nil
 }
 
-func BuildPaletteFromImageFile(path string) (pal PaletteRGBA, err error) {
+func BuildPaletteFromImageFile(path string) (pal PaletteRGBA, colorMap map[uint32]uint8, ok bool) {
 	img, err := LoadImage(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load image file: %v", err)
+		fmt.Println("Error loading image:", err)
+		return nil, nil, false
 	}
 
 	return BuildPaletteFromImage(img)

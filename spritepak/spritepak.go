@@ -25,9 +25,18 @@ func Build(cfgs *SpritePackCfg) ([]Sprite, error) {
 		// Otherwise, we can use RGB565 format.
 
 		pixelFormat := common.FMT_PIXEL_RGB565
-		if common.ImageIsIndexed(img) {
+
+		ok := false
+		colorMap := map[uint32]uint8{}
+		paletteIndex := uint8(0xFF)
+		if _, colorMap, ok = common.BuildPaletteFromImage(img); ok {
 			fmt.Println("Image is indexed, using I8 format:", cfg.ImageFile)
 			pixelFormat = common.FMT_PIXEL_I8
+			if pi, ok := cfgs.PaletteMapping[cfg.PaletteName]; ok {
+				paletteIndex = uint8(pi)
+			}
+		} else {
+			colorMap = nil
 		}
 
 		spritesCfg, err := loadSpritesFile(cfg.SpritesFile)
@@ -35,7 +44,16 @@ func Build(cfgs *SpritePackCfg) ([]Sprite, error) {
 			return nil, fmt.Errorf("failed to load sprites file %s: %w", cfg.SpritesFile, err)
 		}
 
+		if pixelFormat == common.FMT_PIXEL_I8 && paletteIndex == 0xFF {
+			return nil, fmt.Errorf("palette index not found for indexed image: %s", cfg.ImageFile)
+		}
+
 		for _, s := range spritesCfg.Sprites {
+			spriteIndex := 0
+			if spriteIndex, ok = cfgs.SpriteMapping[s.Name]; !ok {
+				fmt.Printf("Warning: Sprite name '%s' not found in mapping, skipping.\n", s.Name)
+				continue // Skip sprites that are not in the mapping
+			}
 			r := common.ImageFullRect(img)
 			if s.Rect != nil {
 				r = *s.Rect
@@ -62,21 +80,26 @@ func Build(cfgs *SpritePackCfg) ([]Sprite, error) {
 				alphaFormat = common.FMT_ALPHA_NONE
 			case common.FMT_PIXEL_I8:
 				fmt.Println("Encoding I8 format:", cfg.ImageFile)
-				px, al = common.EncodeIndexed(img, r)
-			default:
-				return nil, fmt.Errorf("unsupported format: %v", pixelFormat)
+				px, al = common.EncodeIndexed(img, r, colorMap)
 			}
 
 			al = common.ConvertAlpha(al, r.W, r.H, alphaFormat)
 
-			spritesArray = append(spritesArray, Sprite{
-				Width:       uint16(r.W),
-				Height:      uint16(r.H),
-				PixelFormat: pixelFormat,
-				AlphaFormat: alphaFormat,
-				PixelData:   px,
-				AlphaData:   al,
-			})
+			// Ensure the spritesArray has enough capacity for the spriteIndex
+			for spriteIndex >= len(spritesArray) {
+				spritesArray = append(spritesArray, Sprite{})
+			}
+
+			// Assign the sprite data to the correct index in the spritesArray
+			spritesArray[spriteIndex] = Sprite{
+				Width:        uint16(r.W),
+				Height:       uint16(r.H),
+				PixelFormat:  pixelFormat,
+				AlphaFormat:  alphaFormat,
+				PixelData:    px,
+				AlphaData:    al,
+				PaletteIndex: paletteIndex,
+			}
 		}
 	}
 

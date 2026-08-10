@@ -56,22 +56,13 @@ func LoadImage(filePath string) (image.Image, error) {
 	return img, nil
 }
 
-func ImageRGBColorCount(img image.Image) int {
-	colorSet := make(map[uint32]uint8, 256)
-	bounds := img.Bounds()
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			pixelColor := NewColorFromImageColor(img.At(x, y))
-			colorSet[pixelColor.ToRGB32()] = 1
-		}
-	}
-	return len(colorSet)
-}
-
 func ImageIsIndexed(img image.Image) bool {
-	colorCount := ImageRGBColorCount(img)
-	if colorCount > 256 {
-		fmt.Printf("Image has %d colors which is more than 256, not indexed\n", colorCount)
+	_, colorMap, ok := BuildPaletteFromImage(img)
+	if !ok {
+		return false
+	}
+	if len(colorMap) > 256 {
+		fmt.Printf("Image has %d colors which is more than 256, not indexed\n", len(colorMap))
 		return false
 	}
 	return true
@@ -147,30 +138,22 @@ func EncodeRGBA8888(img image.Image, r Rect) []byte {
 	return pixels
 }
 
-func EncodeIndexed(img image.Image, r Rect) (pixels []byte, alpha []byte) {
+func EncodeIndexed(img image.Image, r Rect, colorMap map[uint32]uint8) (pixels []byte, alpha []byte) {
 	pixels = make([]byte, 0, r.W*r.H)
 	alpha = make([]byte, 0, r.W*r.H)
-
-	colorMap := make(map[uint32]uint8)
-	var palette []ColorRGBA
 
 	for y := 0; y < r.H; y++ {
 		for x := 0; x < r.W; x++ {
 			pixelColor := NewColorFromImageColor(img.At(r.X+x, r.Y+y))
-			rgba32 := pixelColor.ToRGB32()
+			rgb32 := pixelColor.ToRGB32()
 
-			if idx, exists := colorMap[rgba32]; exists {
+			if idx, exists := colorMap[rgb32]; exists {
 				pixels = append(pixels, idx)
 			} else {
-				if len(palette) >= 256 {
-					return nil, nil // Too many colors for indexed format
-				}
-				idx := uint8(len(palette))
-				colorMap[rgba32] = idx
-				palette = append(palette, pixelColor)
-				pixels = append(pixels, idx)
-				alpha = append(alpha, pixelColor.A())
+				return nil, nil // Color not found in the color map
 			}
+
+			alpha = append(alpha, pixelColor.A())
 		}
 	}
 
@@ -182,8 +165,8 @@ func ConvertAlpha(alpha []byte, width, height int, alphaFormat AlphaFormat) []by
 	case FMT_ALPHA_NONE:
 		return nil
 	case FMT_ALPHA_MASK:
-		bits := make([]byte, (width*height+7)/8)
 		rowSize := (width + 7) / 8
+		bits := make([]byte, rowSize*height)
 		for h := 0; h < height; h++ {
 			for w := 0; w < width; w++ {
 				i := h*width + w

@@ -6,7 +6,6 @@ import (
 )
 
 type ColorRGBA uint32
-type ColorRGB565 uint16
 
 const (
 	ColorWhite ColorRGBA = 0xFFFFFFFF
@@ -50,6 +49,10 @@ func (c ColorRGBA) B() uint8 {
 	return uint8(c)
 }
 
+func (c ColorRGBA) ToColorRGB565() ColorRGB565 {
+	return ColorRGB565(c.ToRGB16())
+}
+
 func (c ColorRGBA) ToRGB16() uint16 {
 	r := (uint8(c>>16) >> 3) & 0x1F
 	g := (uint8(c>>8) >> 2) & 0x3F
@@ -73,6 +76,30 @@ func (c ColorRGBA) ToR8G8B8A8() (r, g, b, a uint8) {
 	return
 }
 
+type ColorRGB565 uint16
+
+func NewColorRGB565FromColorRGBA(rgb ColorRGBA) ColorRGB565 {
+	return NewColorRGB565FromR8G8B8(rgb.R(), rgb.G(), rgb.B())
+}
+
+func NewColorRGB565FromR8G8B8(r, g, b uint8) ColorRGB565 {
+	return ColorRGB565((uint16(r)>>3)<<11 | (uint16(g)>>2)<<5 | (uint16(b) >> 3))
+}
+
+func (c ColorRGB565) R() uint8 {
+	return uint8((c >> 11) & 0x1F * 255 / 31)
+}
+func (c ColorRGB565) G() uint8 {
+	return uint8((c >> 5) & 0x3F * 255 / 63)
+}
+func (c ColorRGB565) B() uint8 {
+	return uint8((c >> 0) & 0x1F * 255 / 31)
+}
+
+func (c ColorRGB565) ToRGB16() uint16 {
+	return uint16(c)
+}
+
 //  .d8888b.           888                       8888888b.          888          888    888
 // d88P  Y88b          888                       888   Y88b         888          888    888
 // 888    888          888                       888    888         888          888    888
@@ -83,7 +110,7 @@ func (c ColorRGBA) ToR8G8B8A8() (r, g, b, a uint8) {
 //  "Y8888P"   "Y88P"  888  "Y88P"  888          888       "Y888888 888  "Y8888   "Y888  "Y888 "Y8888   88888P'
 
 type PaletteRGBA []ColorRGBA
-type PaletteRGB565 []uint16
+type PaletteRGB565 []ColorRGB565
 
 func NewPaletteRGBA(colors []ColorRGBA) PaletteRGBA {
 	return PaletteRGBA(colors)
@@ -102,9 +129,9 @@ func ComparePalettes(p1, p2 PaletteRGBA) bool {
 }
 
 func (p PaletteRGBA) ToPaletteRGB565() PaletteRGB565 {
-	palette := make([]uint16, len(p))
+	palette := make([]ColorRGB565, len(p))
 	for i, c := range p {
-		palette[i] = c.ToRGB16()
+		palette[i] = c.ToColorRGB565()
 	}
 	return palette
 }

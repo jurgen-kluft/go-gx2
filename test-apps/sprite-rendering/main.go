@@ -13,7 +13,8 @@ import (
 type FrameBuffer struct {
 	Width  int
 	Height int
-	Pixels []rl.Color
+	Pixels []uint16
+	Alpha  []uint8
 }
 
 type Sprite = spritepak.Sprite
@@ -36,7 +37,34 @@ func drawSpriteRGB565(frameBuffer *FrameBuffer, sprite *Sprite, x int, y int) {
 			pixelIndex := sy*int(sprite.Width) + sx
 			pixelColor := uint16(sprite.PixelData[pixelIndex*2])
 			pixelColor |= uint16(sprite.PixelData[pixelIndex*2+1]) << 8
-			frameBuffer.Pixels[(y+sy)*frameBuffer.Width+(x+sx)] = rgb565ToColor(pixelColor)
+			frameBuffer.Pixels[(y+sy)*frameBuffer.Width+(x+sx)] = pixelColor
+
+			if sprite.AlphaData != nil {
+				if sprite.AlphaFormat == common.FMT_ALPHA_MASK {
+					// 1 bit per pixel alpha, rows are aligned to byte boundaries
+					rowSize := (int(sprite.Width) + 7) / 8
+					alphaByte := sprite.AlphaData[sy*rowSize+(sx/8)]
+					alphaBit := (alphaByte >> (7 - uint(sx%8))) & 1
+					if alphaBit == 0 {
+						frameBuffer.Alpha[(y+sy)*frameBuffer.Width+(x+sx)] = 0
+					} else {
+						frameBuffer.Alpha[(y+sy)*frameBuffer.Width+(x+sx)] = 255
+					}
+				}
+			}
+		}
+	}
+}
+
+func drawSpriteI8PaletteRGB565(frameBuffer *FrameBuffer, sprite *Sprite, x int, y int, palette common.PaletteRGB565) {
+	for sy := 0; sy < int(sprite.Height); sy++ {
+		for sx := 0; sx < int(sprite.Width); sx++ {
+			pixelIndex := sy*int(sprite.Width) + sx
+			paletteIndex := sprite.PixelData[pixelIndex]
+			if int(paletteIndex) < len(palette) {
+				pixelColor := palette[paletteIndex]
+				frameBuffer.Pixels[(y+sy)*frameBuffer.Width+(x+sx)] = pixelColor.ToRGB16()
+			}
 		}
 	}
 }
@@ -69,7 +97,7 @@ func main() {
 	// Load the palette pack configuration
 	// -----------------------------------------------------------------------------
 
-	palpakCfg, err := palpak.LoadConfig("PalettePack.json")
+	palpakCfg, err := palpak.LoadConfig("SpritePack.json")
 	if err != nil {
 		panic(err)
 	}
@@ -78,14 +106,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Palette pack size: %d bytes\n", palpak.SizeInBytes(palPak))
+	fmt.Printf("Palette pack memory size: %d bytes\n", palPak.MemSize())
 
 	// -----------------------------------------------------------------------------
 
 	screenWidth := 1920
 	screenHeight := 1080
 
-	rl.InitWindow(int32(screenWidth), int32(screenHeight), "SDF Font Renderer via Raylib Go")
+	rl.InitWindow(int32(screenWidth), int32(screenHeight), "SDF Font Rendering")
 	defer rl.CloseWindow()
 
 	rl.SetTargetFPS(60)
@@ -93,7 +121,8 @@ func main() {
 	frameBuffer := &FrameBuffer{
 		Width:  screenWidth,
 		Height: screenHeight,
-		Pixels: make([]rl.Color, screenWidth*screenHeight),
+		Pixels: make([]uint16, screenWidth*screenHeight),
+		Alpha:  make([]uint8, screenWidth*screenHeight),
 	}
 
 	for !rl.WindowShouldClose() {
@@ -102,7 +131,8 @@ func main() {
 
 		// Clear framebuffer pixels to black before rendering
 		for i := range frameBuffer.Pixels {
-			frameBuffer.Pixels[i] = rl.Black
+			frameBuffer.Pixels[i] = 0
+			frameBuffer.Alpha[i] = 0xFF
 		}
 
 		// Draw sprites
@@ -126,13 +156,38 @@ func main() {
 				if int(sprite.Height) > maxY {
 					maxY = int(sprite.Height)
 				}
+			} else if sprite.PixelFormat == common.FMT_PIXEL_I8 {
+				if int(sprite.PaletteIndex) < len(palPak.PaletteColorRGB565) && palPak.PaletteColorRGB565[sprite.PaletteIndex] != nil {
+					palette := palPak.PaletteColorRGB565[sprite.PaletteIndex]
+					if spriteX+int(sprite.Width) > frameBuffer.Width {
+						spriteX = 0
+						spriteY += maxY + 10 // Move down for the next row of sprites
+						maxY = 0
+					}
+					if spriteY+int(sprite.Height) > frameBuffer.Height {
+						break // Stop drawing if we exceed the framebuffer height
+					}
+
+					drawSpriteI8PaletteRGB565(frameBuffer, &sprite, spriteX, spriteY, palette)
+
+					spriteX += int(sprite.Width) + 10 // Move to the right for the next sprite
+					if int(sprite.Height) > maxY {
+						maxY = int(sprite.Height)
+					}
+				}
 			}
 		}
 
 		// Draw framebuffer pixels to the screen
 		for y := 0; y < frameBuffer.Height; y++ {
 			for x := 0; x < frameBuffer.Width; x++ {
-				rl.DrawPixel(int32(x), int32(y), frameBuffer.Pixels[y*frameBuffer.Width+x])
+				pixel := frameBuffer.Pixels[y*frameBuffer.Width+x]
+				alpha := 255
+				color := rgb565ToColor(pixel)
+				color.R = uint8((uint16(color.R) * uint16(alpha)) / 255)
+				color.G = uint8((uint16(color.G) * uint16(alpha)) / 255)
+				color.B = uint8((uint16(color.B) * uint16(alpha)) / 255)
+				rl.DrawPixel(int32(x), int32(y), color)
 			}
 		}
 

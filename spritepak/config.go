@@ -13,14 +13,15 @@ import (
 //
 
 type SpritePackCfg struct {
-	Files   []SpritePackFileCfg `json:"sprites"`
-	Mapping map[string]int      `json:"mapping,omitempty"`
+	Files          []SpritePackFileCfg `json:"sprites"`
+	SpriteMapping  map[string]int      `json:"sprites_mapping,omitempty"`
+	PaletteMapping map[string]int      `json:"palettes_mapping,omitempty"`
 }
 
 type SpritePackFileCfg struct {
 	ImageFile   string `json:"image_file"`
-	PaletteFile string `json:"palette_file,omitempty"`
 	SpritesFile string `json:"sprites_file"`
+	PaletteName string `json:"palette_name,omitempty"`
 }
 
 type SpritesFileCfg struct {
