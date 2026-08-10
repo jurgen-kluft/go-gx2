@@ -14,7 +14,6 @@ type FrameBuffer struct {
 	Width  int
 	Height int
 	Pixels []uint16
-	Alpha  []uint8
 }
 
 type Sprite = spritepak.Sprite
@@ -37,7 +36,6 @@ func drawSpriteRGB565(frameBuffer *FrameBuffer, sprite *Sprite, x int, y int) {
 			pixelIndex := sy*int(sprite.Width) + sx
 			pixelColor := uint16(sprite.PixelData[pixelIndex*2])
 			pixelColor |= uint16(sprite.PixelData[pixelIndex*2+1]) << 8
-			frameBuffer.Pixels[(y+sy)*frameBuffer.Width+(x+sx)] = pixelColor
 
 			if sprite.AlphaData != nil {
 				if sprite.AlphaFormat == common.FMT_ALPHA_MASK {
@@ -45,12 +43,12 @@ func drawSpriteRGB565(frameBuffer *FrameBuffer, sprite *Sprite, x int, y int) {
 					rowSize := (int(sprite.Width) + 7) / 8
 					alphaByte := sprite.AlphaData[sy*rowSize+(sx/8)]
 					alphaBit := (alphaByte >> (7 - uint(sx%8))) & 1
-					if alphaBit == 0 {
-						frameBuffer.Alpha[(y+sy)*frameBuffer.Width+(x+sx)] = 0
-					} else {
-						frameBuffer.Alpha[(y+sy)*frameBuffer.Width+(x+sx)] = 255
+					if alphaBit != 0 {
+						frameBuffer.Pixels[(y+sy)*frameBuffer.Width+(x+sx)] = pixelColor
 					}
 				}
+			} else {
+				frameBuffer.Pixels[(y+sy)*frameBuffer.Width+(x+sx)] = pixelColor
 			}
 		}
 	}
@@ -63,7 +61,20 @@ func drawSpriteI8PaletteRGB565(frameBuffer *FrameBuffer, sprite *Sprite, x int, 
 			paletteIndex := sprite.PixelData[pixelIndex]
 			if int(paletteIndex) < len(palette) {
 				pixelColor := palette[paletteIndex]
-				frameBuffer.Pixels[(y+sy)*frameBuffer.Width+(x+sx)] = pixelColor.ToRGB16()
+
+				if sprite.AlphaData != nil {
+					if sprite.AlphaFormat == common.FMT_ALPHA_MASK {
+						// 1 bit per pixel alpha, rows are aligned to byte boundaries
+						rowSize := (int(sprite.Width) + 7) / 8
+						alphaByte := sprite.AlphaData[sy*rowSize+(sx/8)]
+						alphaBit := (alphaByte >> (7 - uint(sx%8))) & 1
+						if alphaBit != 0 {
+							frameBuffer.Pixels[(y+sy)*frameBuffer.Width+(x+sx)] = pixelColor.ToRGB16()
+						}
+					}
+				} else {
+					frameBuffer.Pixels[(y+sy)*frameBuffer.Width+(x+sx)] = pixelColor.ToRGB16()
+				}
 			}
 		}
 	}
@@ -122,7 +133,6 @@ func main() {
 		Width:  screenWidth,
 		Height: screenHeight,
 		Pixels: make([]uint16, screenWidth*screenHeight),
-		Alpha:  make([]uint8, screenWidth*screenHeight),
 	}
 
 	for !rl.WindowShouldClose() {
@@ -131,8 +141,7 @@ func main() {
 
 		// Clear framebuffer pixels to black before rendering
 		for i := range frameBuffer.Pixels {
-			frameBuffer.Pixels[i] = 0
-			frameBuffer.Alpha[i] = 0xFF
+			frameBuffer.Pixels[i] = 0x3333
 		}
 
 		// Draw sprites
@@ -182,11 +191,7 @@ func main() {
 		for y := 0; y < frameBuffer.Height; y++ {
 			for x := 0; x < frameBuffer.Width; x++ {
 				pixel := frameBuffer.Pixels[y*frameBuffer.Width+x]
-				alpha := 255
 				color := rgb565ToColor(pixel)
-				color.R = uint8((uint16(color.R) * uint16(alpha)) / 255)
-				color.G = uint8((uint16(color.G) * uint16(alpha)) / 255)
-				color.B = uint8((uint16(color.B) * uint16(alpha)) / 255)
 				rl.DrawPixel(int32(x), int32(y), color)
 			}
 		}
