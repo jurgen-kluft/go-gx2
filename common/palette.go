@@ -372,7 +372,7 @@ func BuildIndexed8Palette(img image.Image, r Rect, pal PaletteRGBA) (pixels []by
 	return indexedImage, true
 }
 
-func BuildPalette(img image.Image) (pal PaletteRGBA, err error) {
+func BuildPaletteFromImage(img image.Image) (pal PaletteRGBA, err error) {
 
 	// Step 1: Convert the image to the rectangle defined size with RGB565 format
 	rgb565Img := make([]uint16, 0, img.Bounds().Dx()*img.Bounds().Dy()*2)
@@ -399,4 +399,13 @@ func BuildPalette(img image.Image) (pal PaletteRGBA, err error) {
 	}
 
 	return pal, nil
+}
+
+func BuildPaletteFromImageFile(path string) (pal PaletteRGBA, err error) {
+	img, err := LoadImage(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load image file: %v", err)
+	}
+
+	return BuildPaletteFromImage(img)
 }

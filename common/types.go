@@ -7,6 +7,7 @@ type AlphaFormat uint8
 const (
 	FMT_ALPHA_NONE AlphaFormat = 0
 	FMT_ALPHA_MASK AlphaFormat = 1 // 1-bit alpha or mask
+	FMT_ALPHA_A1   AlphaFormat = 1
 	FMT_ALPHA_A2   AlphaFormat = 2
 	FMT_ALPHA_A4   AlphaFormat = 4
 	FMT_ALPHA_A8   AlphaFormat = 8

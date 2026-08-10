@@ -97,19 +97,21 @@ func TestEncodeRGB565AlphaFormatsPreserveStraightColor(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		encode    func(image.Image, Rect) ([]byte, []byte)
-		wantAlpha []byte
+		name        string
+		encode      func(image.Image, Rect) ([]byte, []byte)
+		alphaFormat AlphaFormat
+		wantAlpha   []byte
 	}{
-		{name: "A0", encode: EncodeRGB565A0, wantAlpha: []byte{}},
-		{name: "A1", encode: EncodeRGB565A1, wantAlpha: []byte{0x06}},
-		{name: "A4", encode: EncodeRGB565A4, wantAlpha: []byte{0x80, 0x0F}},
-		{name: "A8", encode: EncodeRGB565A8, wantAlpha: []byte{0x00, 0x80, 0xFF}},
+		{name: "A0", encode: EncodeRGB565, alphaFormat: FMT_ALPHA_NONE, wantAlpha: []byte{}},
+		{name: "A1", encode: EncodeRGB565, alphaFormat: FMT_ALPHA_A1, wantAlpha: []byte{0x06}},
+		{name: "A4", encode: EncodeRGB565, alphaFormat: FMT_ALPHA_A4, wantAlpha: []byte{0x80, 0x0F}},
+		{name: "A8", encode: EncodeRGB565, alphaFormat: FMT_ALPHA_A8, wantAlpha: []byte{0x00, 0x80, 0xFF}},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			pixels, alpha := test.encode(img, ImageFullRect(img))
+			alpha = ConvertAlpha(alpha, 3, 1, test.alphaFormat)
 			if !bytes.Equal(pixels, wantPixels) {
 				t.Fatalf("encoded RGB565 mismatch: got %v, want %v", pixels, wantPixels)
 			}

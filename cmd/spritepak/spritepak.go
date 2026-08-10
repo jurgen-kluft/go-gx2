@@ -20,7 +20,7 @@ func main() {
 	if spritePackCfg, err := sprite_pak.LoadConfig(jsonPath); err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 		os.Exit(1)
-	} else if sprites, palettes, err := sprite_pak.Build(spritePackCfg); err != nil {
+	} else if sprites, err := sprite_pak.Build(spritePackCfg); err != nil {
 		fmt.Printf("Error building sprite pak: %v\n", err)
 		os.Exit(1)
 	} else {
@@ -33,8 +33,6 @@ func main() {
 			fmt.Printf("Error writing sprite pak: %v\n", err)
 			os.Exit(1)
 		}
-
-		_ = palettes // Currently not used
 
 		fmt.Printf("Built sprite pak: %s\n", outPath)
 	}

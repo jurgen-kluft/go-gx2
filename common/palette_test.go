@@ -39,7 +39,7 @@ func TestBuildPaletteUsesStraightRGB(t *testing.T) {
 	img.SetNRGBA(1, 0, color.NRGBA{R: 255, G: 0, B: 0, A: 128})
 	img.SetNRGBA(2, 0, color.NRGBA{R: 255, G: 0, B: 0, A: 255})
 
-	palette, err := BuildPalette(img)
+	palette, err := BuildPaletteFromImage(img)
 	if err != nil {
 		t.Fatalf("buildPalette failed: %v", err)
 	}

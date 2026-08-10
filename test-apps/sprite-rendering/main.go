@@ -52,7 +52,7 @@ func main() {
 		panic(err)
 	}
 
-	sprites, _, err := spritepak.Build(spritePak)
+	sprites, err := spritepak.Build(spritePak)
 	if err != nil {
 		panic(err)
 	}

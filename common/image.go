@@ -111,84 +111,8 @@ func AnalyzeAlpha(img image.Image, r Rect, alphaDisabled bool) AlphaFormat {
 	return FMT_ALPHA_A8
 }
 
-// RGB565 + A0 (no separate alpha bitstream)
-func EncodeRGB565A0(img image.Image, r Rect) ([]byte, []byte) {
-	pixels := make([]byte, 0, r.W*r.H*2)
-
-	for y := 0; y < r.H; y++ {
-		for x := 0; x < r.W; x++ {
-			pixelColor := NewColorFromImageColor(img.At(r.X+x, r.Y+y))
-			colorRGB565 := pixelColor.ToRGB16()
-			pixels = append(pixels, byte(colorRGB565), byte(colorRGB565>>8))
-		}
-	}
-	return pixels, []byte{}
-}
-
-// RGB565 + A1 (separate alpha bitstream)
-func EncodeRGB565A1(img image.Image, r Rect) ([]byte, []byte) {
-	pixels := make([]byte, 0, r.W*r.H*2)
-	alpha := make([]byte, 0, (r.W*r.H+7)/8)
-
-	var abit byte
-	var acnt uint
-
-	for y := 0; y < r.H; y++ {
-		for x := 0; x < r.W; x++ {
-			pixelColor := NewColorFromImageColor(img.At(r.X+x, r.Y+y))
-			colorRGB565 := pixelColor.ToRGB16()
-
-			pixels = append(pixels, byte(colorRGB565), byte(colorRGB565>>8))
-
-			if pixelColor.A() > 0 {
-				abit |= 1 << acnt
-			}
-			acnt++
-			if acnt == 8 {
-				alpha = append(alpha, abit)
-				abit = 0
-				acnt = 0
-			}
-		}
-	}
-	if acnt != 0 {
-		alpha = append(alpha, abit)
-	}
-	return pixels, alpha
-}
-
-// RGB565 + A4 (separate alpha bitstream)
-func EncodeRGB565A4(img image.Image, r Rect) ([]byte, []byte) {
-	pixels := make([]byte, 0, r.W*r.H*2)
-	alpha := make([]byte, 0, (r.W*r.H+1)/2)
-
-	var abit byte
-	var acnt uint
-
-	for y := 0; y < r.H; y++ {
-		for x := 0; x < r.W; x++ {
-			pixelColor := NewColorFromImageColor(img.At(r.X+x, r.Y+y))
-			colorRGB565 := pixelColor.ToRGB16()
-
-			pixels = append(pixels, byte(colorRGB565), byte(colorRGB565>>8))
-
-			abit |= (pixelColor.A() >> 4) << (4 * acnt)
-			acnt++
-			if acnt == 2 {
-				alpha = append(alpha, abit)
-				abit = 0
-				acnt = 0
-			}
-		}
-	}
-	if acnt != 0 {
-		alpha = append(alpha, abit)
-	}
-	return pixels, alpha
-}
-
-// RGB565 + A8 (separate alpha bitstream)
-func EncodeRGB565A8(img image.Image, r Rect) ([]byte, []byte) {
+// RGB565
+func EncodeRGB565(img image.Image, r Rect) ([]byte, []byte) {
 	pixels := make([]byte, 0, r.W*r.H*2)
 	alpha := make([]byte, 0, r.W*r.H)
 
@@ -221,4 +145,73 @@ func EncodeRGBA8888(img image.Image, r Rect) []byte {
 		}
 	}
 	return pixels
+}
+
+func EncodeIndexed(img image.Image, r Rect) (pixels []byte, alpha []byte) {
+	pixels = make([]byte, 0, r.W*r.H)
+	alpha = make([]byte, 0, r.W*r.H)
+
+	colorMap := make(map[uint32]uint8)
+	var palette []ColorRGBA
+
+	for y := 0; y < r.H; y++ {
+		for x := 0; x < r.W; x++ {
+			pixelColor := NewColorFromImageColor(img.At(r.X+x, r.Y+y))
+			rgba32 := pixelColor.ToRGB32()
+
+			if idx, exists := colorMap[rgba32]; exists {
+				pixels = append(pixels, idx)
+			} else {
+				if len(palette) >= 256 {
+					return nil, nil // Too many colors for indexed format
+				}
+				idx := uint8(len(palette))
+				colorMap[rgba32] = idx
+				palette = append(palette, pixelColor)
+				pixels = append(pixels, idx)
+				alpha = append(alpha, pixelColor.A())
+			}
+		}
+	}
+
+	return pixels, alpha
+}
+
+func ConvertAlpha(alpha []byte, width, height int, alphaFormat AlphaFormat) []byte {
+	switch alphaFormat {
+	case FMT_ALPHA_NONE:
+		return nil
+	case FMT_ALPHA_MASK:
+		bits := make([]byte, (width*height+7)/8)
+		rowSize := (width + 7) / 8
+		for h := 0; h < height; h++ {
+			for w := 0; w < width; w++ {
+				i := h*width + w
+				a := alpha[i]
+				if a > 0 {
+					bits[h*rowSize+w/8] |= (1 << (7 - uint(w&7)))
+				}
+			}
+		}
+		return bits
+	case FMT_ALPHA_A4:
+		bits := make([]byte, (width*height+1)/2)
+		rowSize := (width + 1) / 2
+		for h := 0; h < height; h++ {
+			for w := 0; w < width; w++ {
+				i := h*width + w
+				a := alpha[i] >> 4 // Convert 8-bit alpha to 4-bit
+				if w&1 == 0 {
+					bits[h*rowSize+w/2] = a << 4
+				} else {
+					bits[h*rowSize+w/2] |= a & 0xF
+				}
+			}
+		}
+		return bits
+	case FMT_ALPHA_A8:
+		return alpha
+	default:
+		return nil
+	}
 }
