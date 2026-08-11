@@ -1,6 +1,7 @@
 package fontpack
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 
@@ -10,8 +11,16 @@ import (
 // ReadPack reads a font pack from the provided reader and returns a slice of Font objects.
 func ReadPack(r io.Reader) ([]Font, error) {
 	fontPack := &FontPack{}
-	if err := codestream.ReadFromStream(r, fontPack); err != nil {
-		return nil, err
+
+	options := codestream.Options{}
+	options.Endian = binary.LittleEndian
+	options.PointerIs64Bit = false
+
+	stream := codestream.NewCodeStream(options)
+	stream.ReadStream(r, fontPack)
+	if stream.HasErrors() {
+		stream.Report()
+		return nil, fmt.Errorf("codestream: failed to read font pack")
 	}
 	return fontPack.Fonts, nil
 }
@@ -28,8 +37,17 @@ func WritePack(w io.Writer, fonts []Font, infos []FontInfo) error {
 	fontPack := &FontPack{
 		Fonts: fonts,
 	}
-	if err := codestream.WriteToStream(w, fontPack); err != nil {
-		return err
+
+	options := codestream.Options{}
+	options.Endian = binary.LittleEndian
+	options.PointerIs64Bit = false
+
+	stream := codestream.NewCodeStream(options)
+	stream.WriteStream(w, fontPack)
+
+	if stream.HasErrors() {
+		stream.Report()
+		return fmt.Errorf("codestream: failed to write font pack")
 	}
 	return nil
 }

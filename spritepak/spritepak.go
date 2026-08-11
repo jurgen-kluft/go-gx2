@@ -1,6 +1,7 @@
 package spritepack
 
 import (
+	"encoding/binary"
 	"fmt"
 	_ "image"
 	"io"
@@ -112,8 +113,16 @@ func ReadPack(r io.Reader) (*SpritePack, error) {
 		Sprites: []Sprite{},
 	}
 
-	if err := codestream.ReadFromStream(r, &spritePack); err != nil {
-		return nil, err
+	options := codestream.Options{}
+	options.Endian = binary.LittleEndian
+	options.PointerIs64Bit = false
+
+	stream := codestream.NewCodeStream(options)
+
+	stream.ReadStream(r, &spritePack)
+	if stream.HasErrors() {
+		stream.Report()
+		return nil, fmt.Errorf("codestream: failed to read sprite pack")
 	}
 
 	return &spritePack, nil
@@ -125,8 +134,16 @@ func WritePack(w io.Writer, sprites []Sprite) error {
 		Sprites: sprites,
 	}
 
-	if err := codestream.WriteToStream(w, spritePack); err != nil {
-		return err
+	options := codestream.Options{}
+	options.Endian = binary.LittleEndian
+	options.PointerIs64Bit = false
+
+	stream := codestream.NewCodeStream(options)
+
+	stream.WriteStream(w, &spritePack)
+	if stream.HasErrors() {
+		stream.Report()
+		return fmt.Errorf("codestream: failed to write sprite pack")
 	}
 
 	return nil
