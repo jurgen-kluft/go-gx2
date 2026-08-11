@@ -10,6 +10,7 @@ import (
 // 16.16 Fixed-Point Configuration
 const (
 	FpFracBits = 16
+	FpFracMask = (1 << FpFracBits) - 1
 	FpOne      = 1 << FpFracBits
 )
 
@@ -90,22 +91,40 @@ func RenderGlyph(fb *FrameBuffer, font *Font, glyphIndex uint8, ctx *FontRenderC
 	glyphData := font.Data[glyphOffset : glyphOffset+glyphSize]
 
 	targetWidth := int(float32(glyphWidth) * scale)
-	targetHeight := int(float32(glyphHeight) * scale)
+	targetHeight := int(float32(glyphHeight-2) * scale)
 
 	var srcYFp int32
 
 	for dstY := 0; dstY < targetHeight; dstY++ {
-		y0 := int(srcYFp >> FpFracBits)
-		rowOffset := y0 * int(glyphWidth)
 		screenY := startY + dstY
+
+		y0 := int(srcYFp >> FpFracBits)
+
+		rowOffset0 := y0 * int(glyphWidth)
+		rowOffset1 := rowOffset0 + int(glyphWidth)
+
+		fy_fp := srcYFp & FpFracMask
 
 		var srcXFp int32
 
-		for dstX := 0; dstX < targetWidth; dstX++ {
-			x0 := int(srcXFp >> FpFracBits)
-			sdfVal := int32(glyphData[rowOffset+x0])
-
+		for dstX := 0; dstX < targetWidth && dstX < fb.Width; dstX++ {
 			screenX := startX + dstX
+
+			x0 := int(srcXFp >> FpFracBits)
+			x1 := x0 + 1
+
+			p00 := int32(glyphData[rowOffset0+x0])
+			p10 := int32(glyphData[rowOffset0+x1])
+			p01 := int32(glyphData[rowOffset1+x0])
+			p11 := int32(glyphData[rowOffset1+x1])
+
+			// Get the horizontal fractional part for interpolation
+			fx_fp := srcXFp & FpFracMask
+
+			// Bilinear interpolation in fixed-point arithmetic
+			top := p00 + ((p10 - p00) * int32(fx_fp) >> FpFracBits)
+			bottom := p01 + ((p11 - p01) * int32(fx_fp) >> FpFracBits)
+			sdfVal := top + ((bottom - top) * int32(fy_fp) >> FpFracBits)
 
 			// Apply Threshold Assignment and Draw
 			if sdfVal >= ctx.MaxEdge {
@@ -113,8 +132,7 @@ func RenderGlyph(fb *FrameBuffer, font *Font, glyphIndex uint8, ctx *FontRenderC
 			} else if sdfVal > ctx.MinEdge {
 				pixelColor := fb.Pixels[screenY*fb.Width+screenX]
 				coverage := uint32((sdfVal-ctx.MinEdge)*255) >> ctx.ShiftBits
-				blendedColor := blendRGBA(pixelColor, color, coverage)
-				fb.Pixels[screenY*fb.Width+screenX] = blendedColor
+				fb.Pixels[screenY*fb.Width+screenX] = blendRGBA(pixelColor, color, coverage)
 				// fb.Pixels[screenY*fb.Width+screenX] = rl.Red
 			}
 
@@ -132,6 +150,12 @@ func RenderText(fb *FrameBuffer, text string, font *Font, x, y int, scale float3
 	for _, char := range text {
 		glyphIndex := font.Map[char]
 
+		if glyphIndex == 0xFF {
+			// Advance pen position horizontally
+			currentX += int(float32(font.GlyphAdvanceX[0]) * scale)
+			continue
+		}
+
 		// Apply the glyph's layout metrics.
 		renderX := currentX + int(float32(font.GlyphBearing[glyphIndex].X)*scale)
 		renderY := y - int(float32(font.GlyphBearing[glyphIndex].Y)*scale)
@@ -144,8 +168,8 @@ func RenderText(fb *FrameBuffer, text string, font *Font, x, y int, scale float3
 }
 
 func main() {
-	screenWidth := 480
-	screenHeight := 480
+	screenWidth := 800
+	screenHeight := 600
 
 	rl.InitWindow(int32(screenWidth), int32(screenHeight), "SDF Font Renderer via Raylib Go")
 	defer rl.CloseWindow()
@@ -195,9 +219,9 @@ func main() {
 			}
 
 			// Draw smooth scalable text string using our custom SDF logic
-			RenderText(frameBuffer, "Sophia", font, 100, 100, scale1+scaler, rl.SkyBlue)
-			RenderText(frameBuffer, "Sophia", font, 100, 200, scale2+scaler, rl.White)
-			RenderText(frameBuffer, "Sophia", font, 100, 300, scale3+scaler, rl.White)
+			RenderText(frameBuffer, "Sophia g j", font, 100, 100, scale1+scaler, rl.SkyBlue)
+			RenderText(frameBuffer, "Sophia g j", font, 100, 200, scale2+scaler, rl.White)
+			RenderText(frameBuffer, "Sophia g j", font, 100, 300, scale3+scaler, rl.White)
 
 			// Draw framebuffer pixels to the screen
 			for y := 0; y < frameBuffer.Height; y++ {

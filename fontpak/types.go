@@ -36,12 +36,12 @@ func (ft FontType) String() string {
 
 // Font holds all glyphs and metrics for a single font.
 type Font struct {
-	Data          []byte              // Bitmap (SDF or Coverage) data for all glyphs in the font
-	GlyphAdvanceX []int8              // Advance X of each glyph
-	GlyphBearing  []GlyphBearing      // X and Y bearing of each glyph
-	GlyphDims     []GlyphDimensions   // Width and height of each glyph
-	GlyphOffset   []uint16            // Offset = (GlyphOffset[i] * 8) into SDF data for each glyph
-	Map           [cMaxNumChars]uint8 // maps ASCII code → glyph index, 0xFF = unsupported
+	Data          []byte            // Bitmap (SDF or Coverage) data for all glyphs in the font
+	GlyphAdvanceX []int8            // Advance X of each glyph
+	GlyphBearing  []GlyphBearing    // X and Y bearing of each glyph
+	GlyphDims     []GlyphDimensions // Width and height of each glyph
+	GlyphOffset   []uint16          // Offset = (GlyphOffset[i] * 8) into SDF data for each glyph
+	Map           []uint8           // maps ASCII code → glyph index, 0xFF = unsupported
 	Ascent        int8
 	Descent       int8
 	LineGap       int8
