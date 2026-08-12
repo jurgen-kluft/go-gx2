@@ -121,8 +121,8 @@ func main() {
 
 	// -----------------------------------------------------------------------------
 
-	screenWidth := 1920
-	screenHeight := 1080
+	screenWidth := 640
+	screenHeight := 480
 
 	rl.InitWindow(int32(screenWidth), int32(screenHeight), "SDF Font Rendering")
 	defer rl.CloseWindow()
@@ -135,6 +135,10 @@ func main() {
 		Pixels: make([]uint16, screenWidth*screenHeight),
 	}
 
+	drawSprites := false // Set to false to see the fire effect instead of sprites
+
+	fireEffect := NewFireEffect(640, 480) // Create a fire effect with a width of 320 and height of 240
+
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.RayWhite)
@@ -145,29 +149,12 @@ func main() {
 		}
 
 		// Draw sprites
-		spriteX := 0
-		spriteY := 0
-		maxY := 0
-		for _, sprite := range sprites {
-			if sprite.PixelFormat == common.FMT_PIXEL_RGB565 {
-				if spriteX+int(sprite.Width) > frameBuffer.Width {
-					spriteX = 0
-					spriteY += maxY + 10 // Move down for the next row of sprites
-					maxY = 0
-				}
-				if spriteY+int(sprite.Height) > frameBuffer.Height {
-					break // Stop drawing if we exceed the framebuffer height
-				}
-
-				drawSpriteRGB565(frameBuffer, &sprite, spriteX, spriteY)
-
-				spriteX += int(sprite.Width) + 10 // Move to the right for the next sprite
-				if int(sprite.Height) > maxY {
-					maxY = int(sprite.Height)
-				}
-			} else if sprite.PixelFormat == common.FMT_PIXEL_I8 {
-				if int(sprite.PaletteIndex) < len(palPak.PaletteColorRGB565) && palPak.PaletteColorRGB565[sprite.PaletteIndex] != nil {
-					palette := palPak.PaletteColorRGB565[sprite.PaletteIndex]
+		if drawSprites {
+			spriteX := 0
+			spriteY := 0
+			maxY := 0
+			for _, sprite := range sprites {
+				if sprite.PixelFormat == common.FMT_PIXEL_RGB565 {
 					if spriteX+int(sprite.Width) > frameBuffer.Width {
 						spriteX = 0
 						spriteY += maxY + 10 // Move down for the next row of sprites
@@ -177,14 +164,35 @@ func main() {
 						break // Stop drawing if we exceed the framebuffer height
 					}
 
-					drawSpriteI8PaletteRGB565(frameBuffer, &sprite, spriteX, spriteY, palette)
+					drawSpriteRGB565(frameBuffer, &sprite, spriteX, spriteY)
 
 					spriteX += int(sprite.Width) + 10 // Move to the right for the next sprite
 					if int(sprite.Height) > maxY {
 						maxY = int(sprite.Height)
 					}
+				} else if sprite.PixelFormat == common.FMT_PIXEL_I8 {
+					if int(sprite.PaletteIndex) < len(palPak.PaletteColorRGB565) && palPak.PaletteColorRGB565[sprite.PaletteIndex] != nil {
+						palette := palPak.PaletteColorRGB565[sprite.PaletteIndex]
+						if spriteX+int(sprite.Width) > frameBuffer.Width {
+							spriteX = 0
+							spriteY += maxY + 10 // Move down for the next row of sprites
+							maxY = 0
+						}
+						if spriteY+int(sprite.Height) > frameBuffer.Height {
+							break // Stop drawing if we exceed the framebuffer height
+						}
+
+						drawSpriteI8PaletteRGB565(frameBuffer, &sprite, spriteX, spriteY, palette)
+
+						spriteX += int(sprite.Width) + 10 // Move to the right for the next sprite
+						if int(sprite.Height) > maxY {
+							maxY = int(sprite.Height)
+						}
+					}
 				}
 			}
+		} else {
+			fireEffect.ProcessFrame(frameBuffer)
 		}
 
 		// Draw framebuffer pixels to the screen

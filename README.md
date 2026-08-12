@@ -92,23 +92,26 @@ Minimal example:
 
 ~~~json
 {
-	"fonts": [
-		{
-			"file": "path/to/font.ttf",
-			"fonts": [
-				{
-					"name": "main16",
-					"size": 16,
-					"sdf": true,
-					"sdf_buffer": 3,
-					"sdf_radius": 8,
-					"sdf_cutoff": 0.25,
-					"chars": ["A", "B", " "],
-					"glyphs": ["A", "B", " "]
-				}
-			]
-		}
-	]
+    "mapping": {
+        "FiraCodeNerdFontMono-Regular": 0
+    },
+    "fonts": [
+        {
+            "file": "/Users/obnosis5/Library/Fonts/FiraCodeNerdFontMono-Regular.ttf",
+            "name": "FiraCodeNerdFontMono-Regular",
+            "options" : {
+                "size": 24,
+                "sdf": true,
+                "sdf_border": 2,
+                "sdf_radius": 1.0,
+                "sdf_cutoff": 0.05
+            }
+        }
+    ],
+    "chars": [
+        { "address": "a", "glyph": "a" },
+        { "address": "b", "glyph": "b" }
+    ]
 }
 ~~~
 
@@ -122,18 +125,18 @@ Minimal example:
 
 ~~~json
 {
-	"files": [
-		{
-			"file": "atlas.png",
-			"sprites": [
-				{
-					"name": "title",
-					"format": "RGBA8888",
-					"rect": { "x": 0, "y": 0, "w": 128, "h": 32 }
-				}
-			]
-		}
-	]
+    "sprites": [
+        {
+            "image_file": "WeatherSprites.png",
+            "sprites_file": "WeatherSprites.json",
+            "palette_name": "WeatherSprites"
+        }
+    ],
+    "sprites_mapping": {
+        "celcius": 0,
+        "clouds.fog": 1,
+        "clouds.hail": 2
+    }
 }
 ~~~
 
