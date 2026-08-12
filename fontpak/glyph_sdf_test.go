@@ -32,7 +32,7 @@ func TestApplySDFRetainsOnePixelBuffer(t *testing.T) {
 				copy(want[y*wantWidth:(y+1)*wantWidth], full[srcOffset:srcOffset+wantWidth])
 			}
 
-			glyph := builtGlyph{Width: 3, Height: 2, BearingX: 4, BearingY: 5}
+			glyph := Glyph{Width: 3, Height: 2, BearingX: 4, BearingY: 5}
 			applySDF(&glyph, img, opts)
 
 			if glyph.Width != uint16(wantWidth) || glyph.Height != uint16(wantHeight) {

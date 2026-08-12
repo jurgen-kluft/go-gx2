@@ -84,11 +84,9 @@ func blendRGBA(dst rl.Color, src rl.Color, coverage uint32) rl.Color {
 
 // RenderGlyph draws an isolated character using fixed-point nearest-neighbor sampling.
 func RenderGlyph(fb *FrameBuffer, font *Font, glyphIndex uint8, ctx *FontRenderContext, color rl.Color, startX, startY int, scale float32) {
-	glyphWidth := font.GlyphDims[glyphIndex].Width
-	glyphHeight := font.GlyphDims[glyphIndex].Height
-	glyphOffset := int(font.GlyphOffset[glyphIndex]) * 8
-	glyphSize := int(glyphWidth) * int(glyphHeight)
-	glyphData := font.Data[glyphOffset : glyphOffset+glyphSize]
+	glyphWidth := font.Glyphs[glyphIndex].Width
+	glyphHeight := font.Glyphs[glyphIndex].Height
+	glyphData := font.Glyphs[glyphIndex].Bitmap
 
 	targetWidth := int(float32(glyphWidth) * scale)
 	targetHeight := int(float32(glyphHeight-2) * scale)
@@ -148,22 +146,22 @@ func RenderText(fb *FrameBuffer, text string, font *Font, x, y int, scale float3
 	currentX := x
 
 	for _, char := range text {
-		glyphIndex := font.Map[char]
+		glyphIndex := font.CharMap[char]
 
 		if glyphIndex == 0xFF {
 			// Advance pen position horizontally
-			currentX += int(float32(font.GlyphAdvanceX[0]) * scale)
+			currentX += int(float32(font.Glyphs[0].AdvanceX) * scale)
 			continue
 		}
 
 		// Apply the glyph's layout metrics.
-		renderX := currentX + int(float32(font.GlyphBearing[glyphIndex].X)*scale)
-		renderY := y - int(float32(font.GlyphBearing[glyphIndex].Y)*scale)
+		renderX := currentX + int(float32(font.Glyphs[glyphIndex].BearingX)*scale)
+		renderY := y - int(float32(font.Glyphs[glyphIndex].BearingY)*scale)
 
 		RenderGlyph(fb, font, glyphIndex, &ctx, color, renderX, renderY, scale)
 
 		// Advance pen position horizontally
-		currentX += int(float32(font.GlyphAdvanceX[glyphIndex]) * scale)
+		currentX += int(float32(font.Glyphs[glyphIndex].AdvanceX) * scale)
 	}
 }
 
@@ -181,7 +179,7 @@ func main() {
 		panic(err)
 	}
 
-	fonts, infos, err := fontpack.Build(fontPackCfg)
+	fonts, err := fontpack.Build(fontPackCfg)
 	if err != nil {
 		panic(err)
 	}
@@ -189,8 +187,8 @@ func main() {
 	if len(fonts) > 0 {
 		font := &fonts[0]
 
-		fontpack.PrintFontInfo(font, infos[0])
-		for _, gi := range font.Map {
+		fontpack.PrintFontInfo(font)
+		for _, gi := range font.CharMap {
 			if gi != 0xFF { // Only print valid glyphs
 				//font.PrintGlyphInfo(int(gi))
 			}

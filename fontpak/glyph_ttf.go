@@ -33,17 +33,17 @@ func extractFontMetrics(face font.Face) (ascent, descent, lineGap int16) {
 	return int16(a), int16(-d), int16(h - (a + d))
 }
 
-func buildGlyphTTF(face font.Face, r rune, opts FontOptions) (*builtGlyph, error) {
+func buildGlyphTTF(face font.Face, r rune, opts FontOptions) (Glyph, error) {
 	pb, advance, ok := face.GlyphBounds(r)
 	if !ok {
-		return nil, nil
+		return Glyph{}, nil
 	}
 
 	w := pb.Max.X - pb.Min.X
 	h := pb.Max.Y - pb.Min.Y
 
 	if w <= 0 || h <= 0 {
-		return &builtGlyph{
+		return Glyph{
 			Rune:     r,
 			AdvanceX: int16(fixedToInt(advance)),
 		}, nil
@@ -65,7 +65,7 @@ func buildGlyphTTF(face font.Face, r rune, opts FontOptions) (*builtGlyph, error
 	bitmap := make([]byte, len(img.Pix))
 	copy(bitmap, img.Pix)
 
-	glyph := &builtGlyph{
+	glyph := Glyph{
 		Rune:     r,
 		AdvanceX: int16(fixedToInt(advance)),
 		BearingX: int16(fixedToInt(pb.Min.X)),
@@ -75,7 +75,7 @@ func buildGlyphTTF(face font.Face, r rune, opts FontOptions) (*builtGlyph, error
 		Bitmap:   bitmap,
 	}
 
-	applySDF(glyph, img, opts)
+	applySDF(&glyph, img, opts)
 
 	return glyph, nil
 }

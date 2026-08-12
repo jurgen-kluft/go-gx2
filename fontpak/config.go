@@ -63,8 +63,8 @@ func LoadConfig(path string) (*FontPackCfg, error) {
 		if font.Name == "" {
 			return nil, fmt.Errorf("font name cannot be empty in file %q", font.File)
 		}
-		if len(font.Chars) == 0 || len(font.Chars) > (cMaxNumChars) {
-			return nil, fmt.Errorf("char map must contain between 1 and %d characters in font %q of file %q", cMaxNumChars, font.Name, font.File)
+		if len(font.Chars) == 0 || len(font.Chars) > (255) {
+			return nil, fmt.Errorf("char map must contain between 1 and %d characters in font %q of file %q", 255, font.Name, font.File)
 		}
 
 		options := font.options()

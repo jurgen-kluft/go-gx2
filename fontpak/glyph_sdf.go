@@ -6,7 +6,7 @@ import (
 	sdf_font "github.com/jurgen-kluft/go-gx2/fontpak/sdf"
 )
 
-func applySDF(glyph *builtGlyph, img image.Image, opts FontOptions) {
+func applySDF(glyph *Glyph, img image.Image, opts FontOptions) {
 	if glyph == nil || !opts.SDF || glyph.Width == 0 || glyph.Height == 0 {
 		return
 	}
