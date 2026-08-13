@@ -24,7 +24,7 @@ func rgb565ToColor(c uint16) rl.Color {
 
 func main() {
 
-	screenWidth := 640
+	screenWidth := 480
 	screenHeight := 480
 
 	rl.InitWindow(int32(screenWidth), int32(screenHeight), "SDF Font Rendering")
@@ -38,7 +38,8 @@ func main() {
 		Pixels: make([]uint16, screenWidth*screenHeight),
 	}
 
-	fireEffect := NewFireEffect(640, 480) // Create a fire effect with a width of 320 and height of 240
+	//fireEffect := NewFireEffect(640, 480) // Create a fire effect with a width of 320 and height of 240
+	metaballs := NewMetaBallEffect(12345, 10, int32(screenWidth), int32(screenHeight)) // Create a metaball effect with 10 balls
 
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
@@ -49,7 +50,8 @@ func main() {
 			frameBuffer.Pixels[i] = 0x3333
 		}
 
-		fireEffect.ProcessFrame(frameBuffer)
+		//fireEffect.ProcessFrame(frameBuffer)
+		metaballs.ProcessFrame(frameBuffer)
 
 		// Draw framebuffer pixels to the screen
 		for y := 0; y < frameBuffer.Height; y++ {
