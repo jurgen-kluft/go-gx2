@@ -52,7 +52,7 @@ func NewConwayEffect(screenWidth, screenHeight int32) *ConwayGameOfLife {
 	state := &ConwayGameOfLife{
 		ScreenWidth:  screenWidth,
 		ScreenHeight: screenHeight,
-		CellSize:     int32(16),
+		CellSize:     int32(8),
 		SelectedR:    255,
 		SelectedG:    0,
 		SelectedB:    0,
