@@ -38,20 +38,24 @@ func main() {
 		Pixels: make([]uint16, screenWidth*screenHeight),
 	}
 
-	//fireEffect := NewFireEffect(640, 480) // Create a fire effect with a width of 320 and height of 240
-	metaballs := NewMetaBallEffect(12345, 10, int32(screenWidth), int32(screenHeight)) // Create a metaball effect with 10 balls
+	//effect := NewFireEffect(640, 480) // Create a fire effect with a width of 320 and height of 240
+	//effect := NewMetaBallEffect(12345, 10, 16, int32(screenWidth), int32(screenHeight)) // Create a metaball effect with 10 balls
+	//effect := NewMetaball2Effect()
+	//effect := NewStarFieldEffect(2000) // Create a star field effect with 1000 stars
+	effect := NewConwayEffect(int32(screenWidth), int32(screenHeight)) // Create a Conway's Game of Life effect
 
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.RayWhite)
 
+		delta := rl.GetFrameTime() // Get the time elapsed since the last frame
+
 		// Clear framebuffer pixels to black before rendering
 		for i := range frameBuffer.Pixels {
-			frameBuffer.Pixels[i] = 0x3333
+			frameBuffer.Pixels[i] = 0
 		}
 
-		//fireEffect.ProcessFrame(frameBuffer)
-		metaballs.ProcessFrame(frameBuffer)
+		effect.ProcessFrame(delta, frameBuffer)
 
 		// Draw framebuffer pixels to the screen
 		for y := 0; y < frameBuffer.Height; y++ {

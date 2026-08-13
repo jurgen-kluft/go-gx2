@@ -10,11 +10,11 @@
 
 ## Particle & Fluid Systems
 
-- **Starfield Simulation:** Classic deep space movement utilizing independent particle points accelerating outward down the Z-axis.
+- ✅ **Starfield Simulation:** Classic deep space movement utilizing independent particle points accelerating outward down the Z-axis.
 - **Conway’s Game of Life:** Cellular automata grid computing life/death matrices to form complex organic breeding patterns.
 - **Plasma Generator:** Layering overlapping multi-axis trigonometric sine and cosine waves to build shifting psychedelic designs.
-- **Meta-Balls:** Summing field intensity maps surrounding multiple coordinate centers to render merging liquid-mercury droplets.
-- **Flicker Fire Effect:** Running localized bottom-up attenuation filters over random heat noise arrays to generate distinct flames.
+- ✅ **Meta-Balls:** Summing field intensity maps surrounding multiple coordinate centers to render merging liquid-mercury droplets.
+- ✅ **Flicker Fire Effect:** Running localized bottom-up attenuation filters over random heat noise arrays to generate distinct flames.
 
 ## Texture & Raycasting Engineering
 

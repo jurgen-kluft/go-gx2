@@ -1,49 +1,252 @@
 package main
 
+import "math"
+
 // Constants matching classic retro video specifications
 const (
-	LutRadius = 128
-	LutSize   = LutRadius * 2
+	LutRadius       = 128
+	LutSize         = LutRadius * 2
+	contourBinCount = 512
 
-	// Fixed-point scaling shifts (16.16 format)
-	FPShift     = 16
-	FPOne       = 1 << FPShift
-	maxVelocity = 4 * FPOne
+	maxVelocity           = 4.0
+	restRadius            = 35.0
+	verletDamping         = 0.985
+	constraintIterations  = 4
+	spokeStiffness        = 0.2
+	neighborStiffness     = 0.55
+	areaStiffness         = 0.35
+	contactRestitution    = 0.8
+	contactCorrection     = 0.5
+	contactSlop           = 0.1
+	contactReleaseBand    = 8.0
+	contactDentResponse   = 0.45
+	contactVelocityDent   = 0.8
+	maxContactDent        = 8.0
+	energyRestoreDelay    = 60
+	energyRestoreDeadband = 0.03
+	energyRestoreRate     = 0.01
+	maxRestoredSpeedStep  = 0.05
 
 	fieldStrength    = 180000
 	surfaceThreshold = 140
 )
 
+func newHeatPalette() [256]uint16 {
+	var palette [256]uint16
+	for i := 0; i < 256; i++ {
+		var r, g, b uint8
+		if i < 128 {
+			r = uint8(i * 2)
+		} else if i < 200 {
+			r = 255
+			g = uint8((i - 128) * 3)
+		} else {
+			r = 255
+			g = 255
+			b = uint8((i - 200) * 4)
+		}
+		palette[i] = convertToRGB565(r, g, b)
+	}
+	return palette
+}
+
+type VerletPoint struct {
+	position         Vec2
+	previousPosition Vec2
+}
+
 // Ball structure tracking individual 2D velocity vectors
 type Ball struct {
-	x, y   int32
-	dx, dy int32
+	x, y   float32
+	dx, dy float32
 
-	// Morphing Engine Data
-	Radii      [8]int32 // Current offset from base radius (16.16 fixed-point)
-	Velocities [8]int32 // Spring velocity of each point (16.16 fixed-point)
-	BaseRadius int32    // Standard resting radius modifier (scaled around 256)
+	points       []VerletPoint
+	contourRadii []float32
+	targetArea   float32
+}
+
+func iterationStiffness(stiffness float32) float32 {
+	return 1 - float32(math.Pow(float64(1-stiffness), 1.0/constraintIterations))
+}
+
+func (b *Ball) area() float32 {
+	area := float32(0)
+	for pointIdx := range b.points {
+		area += cross(b.points[pointIdx].position, b.points[(pointIdx+1)%len(b.points)].position)
+	}
+	return area * 0.5
+}
+
+func (b *Ball) updateVerlet() {
+	for pointIdx := range b.points {
+		point := &b.points[pointIdx]
+		velocity := point.position.sub(point.previousPosition).scale(verletDamping)
+		point.previousPosition = point.position
+		point.position = point.position.add(velocity)
+	}
+	b.solveConstraints()
+}
+
+func (b *Ball) solveConstraints() {
+	spokeStep := iterationStiffness(spokeStiffness)
+	neighborStep := iterationStiffness(neighborStiffness)
+	areaStep := iterationStiffness(areaStiffness)
+	neighborRestLength := float32(2 * restRadius * math.Sin(math.Pi/float64(len(b.points))))
+	for iteration := 0; iteration < constraintIterations; iteration++ {
+		for pointIdx := range b.points {
+			point := &b.points[pointIdx]
+			length := point.position.length()
+			if length > 0 {
+				correction := point.position.scale((length - restRadius) / length * spokeStep)
+				point.position = point.position.sub(correction)
+			}
+		}
+
+		for pointIdx := range b.points {
+			nextIdx := (pointIdx + 1) % len(b.points)
+			delta := b.points[nextIdx].position.sub(b.points[pointIdx].position)
+			length := delta.length()
+			if length == 0 {
+				continue
+			}
+			correction := delta.scale((length - neighborRestLength) / length * 0.5 * neighborStep)
+			b.points[pointIdx].position = b.points[pointIdx].position.add(correction)
+			b.points[nextIdx].position = b.points[nextIdx].position.sub(correction)
+		}
+
+		currentArea := b.area()
+		if currentArea > 0 && b.targetArea > 0 {
+			targetScale := float32(math.Sqrt(float64(b.targetArea / currentArea)))
+			scale := 1 + (targetScale-1)*areaStep
+			for pointIdx := range b.points {
+				b.points[pointIdx].position = b.points[pointIdx].position.scale(scale)
+			}
+		}
+	}
+}
+
+func (b *Ball) resolveWallContact(direction Vec2, penetration float32) {
+	if penetration <= 0 {
+		return
+	}
+
+	if direction.x < 0 {
+		b.x += penetration
+	} else if direction.x > 0 {
+		b.x -= penetration
+	} else if direction.y < 0 {
+		b.y += penetration
+	} else {
+		b.y -= penetration
+	}
+
+	normalVelocity := b.dx*direction.x + b.dy*direction.y
+	closingSpeed := float32(0)
+	if normalVelocity > 0 {
+		closingSpeed = normalVelocity
+		impulse := (1 + contactRestitution) * normalVelocity
+		b.dx -= direction.x * impulse
+		b.dy -= direction.y * impulse
+	}
+	b.applyContactDent(direction, penetration, closingSpeed)
+}
+
+func (b *Ball) keepInside(width, height float32) {
+	if penetration := b.supportRadius(Vec2{x: -1}) - b.x; penetration > 0 {
+		b.x += penetration
+	}
+	if penetration := b.x + b.supportRadius(Vec2{x: 1}) - width; penetration > 0 {
+		b.x -= penetration
+	}
+	if penetration := b.supportRadius(Vec2{y: -1}) - b.y; penetration > 0 {
+		b.y += penetration
+	}
+	if penetration := b.y + b.supportRadius(Vec2{y: 1}) - height; penetration > 0 {
+		b.y -= penetration
+	}
+}
+
+func (b *Ball) supportRadius(direction Vec2) float32 {
+	support := float32(0)
+	for _, point := range b.points {
+		projection := point.position.dot(direction)
+		if projection > support {
+			support = projection
+		}
+	}
+	return support
+}
+
+func (b *Ball) applyContactDent(direction Vec2, penetration, closingSpeed float32) {
+	dent := penetration*contactDentResponse + closingSpeed*contactVelocityDent
+	if dent > maxContactDent {
+		dent = maxContactDent
+	}
+	for pointIdx := range b.points {
+		point := &b.points[pointIdx]
+		length := point.position.length()
+		if length == 0 {
+			continue
+		}
+		alignment := point.position.dot(direction) / length
+		const contactLobeStart = 0.25
+		if alignment <= contactLobeStart {
+			continue
+		}
+		weight := (alignment - contactLobeStart) / (1 - contactLobeStart)
+		weight *= weight
+		displacement := direction.scale(dent * weight)
+		point.position = point.position.sub(displacement)
+		point.previousPosition = point.previousPosition.sub(displacement.scale(0.7))
+	}
+}
+
+func (b *Ball) rebuildContour() {
+	for bin := range b.contourRadii {
+		angle := 2 * math.Pi * float64(bin) / float64(len(b.contourRadii))
+		direction := Vec2{x: float32(math.Cos(angle)), y: float32(math.Sin(angle))}
+		radius := float32(LutRadius)
+		found := false
+		for pointIdx := range b.points {
+			start := b.points[pointIdx].position
+			end := b.points[(pointIdx+1)%len(b.points)].position
+			edge := end.sub(start)
+			denominator := cross(direction, edge)
+			if absFloat32(denominator) < 0.000001 {
+				continue
+			}
+			distance := cross(start, edge) / denominator
+			edgeFraction := cross(start, direction) / denominator
+			if distance >= 0 && edgeFraction >= 0 && edgeFraction <= 1 && distance < radius {
+				radius = distance
+				found = true
+			}
+		}
+		if !found || radius < 1 {
+			radius = restRadius
+		}
+		b.contourRadii[bin] = radius
+	}
 }
 
 // MetaBallEffect encapsulates all buffers, configurations, and states for the effect.
 type MetaBallEffect struct {
 	// Static Lookup Tables and Render Buffers
 	intensityTable  [LutSize * LutSize]uint8
+	angleBinTable   [LutSize * LutSize]uint16
 	masterAccumGrid []uint8
 	liquidPalette   [256]uint16
 
-	numBalls int32
-	gridSize int32
-	width    int32
-	height   int32
-
-	widthFP  int32
-	heightFP int32
+	numBalls           int32
+	pointCount         int
+	neighborRestLength float32
+	gridSize           int32
+	width              int32
+	height             int32
 
 	// Physics tuning constants
-	repulsionDistSq int32 // Real pixel distance squared (30 pixels) where repulsion triggers
-	repulsionForce  int32 // Aggressive speed thrust pushing balls apart
-	attractionForce int32 // Gentle pull to keep balls from drifting too far apart
+	attractionForce           float32 // Gentle pull to keep balls from drifting too far apart
+	targetTranslationalEnergy float32
 
 	// Dynamic State Data
 	balls      []Ball
@@ -52,28 +255,107 @@ type MetaBallEffect struct {
 }
 
 // NewMetaBallEffect instantiates and safely initializes a new effect state.
-func NewMetaBallEffect(seed uint32, numBalls int32, width, height int32) *MetaBallEffect {
+func NewMetaBallEffect(seed uint32, numBalls int32, pointCount int, width, height int32) *MetaBallEffect {
+	if pointCount < 3 {
+		panic("metaball point count must be at least 3")
+	}
 	effect := &MetaBallEffect{
-		numBalls:        numBalls,
-		gridSize:        width * height,
-		width:           width,
-		height:          height,
-		balls:           make([]Ball, numBalls),
-		masterAccumGrid: make([]uint8, width*height),
+		numBalls:           numBalls,
+		pointCount:         pointCount,
+		neighborRestLength: float32(2 * restRadius * math.Sin(math.Pi/float64(pointCount))),
+		gridSize:           width * height,
+		width:              width,
+		height:             height,
+		balls:              make([]Ball, numBalls),
+		masterAccumGrid:    make([]uint8, width*height),
 
-		widthFP:  width << FPShift,
-		heightFP: height << FPShift,
-
-		// Physics tuning constants
-		repulsionDistSq: 900,        // Real pixel distance squared (30 pixels) where repulsion triggers
-		repulsionForce:  20 * FPOne, // Inverse-distance repulsion strength in fixed-point units
-		attractionForce: 0x100,      // Gentle pull to keep balls from drifting too far apart
+		attractionForce: 1.0 / 25600, // Gentle pull to keep balls from drifting too far apart
 
 		randState:  seed,
 		frameCount: 0,
 	}
 	effect.init()
+	effect.targetTranslationalEnergy = effect.translationalEnergy()
 	return effect
+}
+
+func (m *MetaBallEffect) translationalEnergy() float32 {
+	energy := float32(0)
+	for _, ball := range m.balls {
+		energy += ball.dx*ball.dx + ball.dy*ball.dy
+	}
+	return energy
+}
+
+func (m *MetaBallEffect) restoreTranslationalEnergy() {
+	if m.frameCount < energyRestoreDelay || m.targetTranslationalEnergy <= 0 || len(m.balls) == 0 {
+		return
+	}
+
+	currentEnergy := m.translationalEnergy()
+	minimumEnergy := m.targetTranslationalEnergy * (1 - energyRestoreDeadband)
+	if currentEnergy >= minimumEnergy {
+		return
+	}
+
+	start := int(m.frameCount % uint32(len(m.balls)))
+	slowestIdx := start
+	slowestSpeedSq := float32(math.MaxFloat32)
+	for offset := 0; offset < len(m.balls); offset++ {
+		ballIdx := (start + offset) % len(m.balls)
+		ball := &m.balls[ballIdx]
+		speedSq := ball.dx*ball.dx + ball.dy*ball.dy
+		if speedSq < slowestSpeedSq {
+			slowestSpeedSq = speedSq
+			slowestIdx = ballIdx
+		}
+	}
+
+	energyBudget := (m.targetTranslationalEnergy - currentEnergy) * energyRestoreRate
+	oldSpeed := float32(math.Sqrt(float64(slowestSpeedSq)))
+	maxNewSpeed := oldSpeed + maxRestoredSpeedStep
+	if maxNewSpeed > maxVelocity {
+		maxNewSpeed = maxVelocity
+	}
+	maxAddedEnergy := maxNewSpeed*maxNewSpeed - slowestSpeedSq
+	if energyBudget > maxAddedEnergy {
+		energyBudget = maxAddedEnergy
+	}
+	if remaining := m.targetTranslationalEnergy - currentEnergy; energyBudget > remaining {
+		energyBudget = remaining
+	}
+	if energyBudget <= 0 {
+		return
+	}
+
+	ball := &m.balls[slowestIdx]
+	direction := Vec2{}
+	if oldSpeed > 0.0001 {
+		direction = Vec2{x: ball.dx / oldSpeed, y: ball.dy / oldSpeed}
+	} else {
+		centroid := Vec2{}
+		for ballIdx := range m.balls {
+			if ballIdx != slowestIdx {
+				centroid.x += m.balls[ballIdx].x
+				centroid.y += m.balls[ballIdx].y
+			}
+		}
+		if len(m.balls) > 1 {
+			centroid = centroid.scale(1 / float32(len(m.balls)-1))
+		}
+		direction = Vec2{x: ball.x - centroid.x, y: ball.y - centroid.y}
+		length := direction.length()
+		if length > 0.0001 {
+			direction = direction.scale(1 / length)
+		} else {
+			angle := 2 * math.Pi * float64(slowestIdx+int(m.frameCount)) / float64(len(m.balls)+1)
+			direction = Vec2{x: float32(math.Cos(angle)), y: float32(math.Sin(angle))}
+		}
+	}
+
+	newSpeed := float32(math.Sqrt(float64(slowestSpeedSq + energyBudget)))
+	ball.dx = direction.x * newSpeed
+	ball.dy = direction.y * newSpeed
 }
 
 // pseudoRand implements your exact PCG-XSH-RR hash mixing function
@@ -84,11 +366,10 @@ func (m *MetaBallEffect) pseudoRand() uint32 {
 	return (word >> 22) ^ word
 }
 
-// customRandHelper scales the 32-bit pseudoRand output into a specific [min, max] range using raw integer math
-func (m *MetaBallEffect) customRandHelper(min, max int32) int32 {
-	val := m.pseudoRand()
-	// Map the uint32 value cleanly inside our target boundaries
-	return min + int32(val%uint32(max-min+1))
+// customRandFloat scales pseudoRand output into a specific [min, max) range.
+func (m *MetaBallEffect) customRandFloat(min, max float32) float32 {
+	unit := float32(m.pseudoRand()>>8) / float32(1<<24)
+	return min + unit*(max-min)
 }
 
 // init builds lookup tables and assigns initial coordinates upon creation
@@ -110,34 +391,25 @@ func (m *MetaBallEffect) init() {
 				intensity = 255
 			}
 			m.intensityTable[y*LutSize+x] = uint8(intensity)
+
+			angle := math.Atan2(float64(dy), float64(dx))
+			if angle < 0 {
+				angle += 2 * math.Pi
+			}
+			m.angleBinTable[y*LutSize+x] = uint16(angle / (2 * math.Pi) * contourBinCount)
 		}
 	}
 
 	// 2. Generate a metallic/electric liquid palette (Deep Red -> Bright Orange -> Yellow)
-	for i := 0; i < 256; i++ {
-		var r, g, b uint8
-		if i < 128 { // Outer fringe: Crimson red
-			r = uint8(i * 2)
-		} else if i < 200 { // Mid-layer: Bright orange transition
-			r = 255
-			g = uint8((i - 128) * 3)
-		} else { // Hot core: Vibrant yellow-white
-			r = 255
-			g = 255
-			b = uint8((i - 200) * 4)
-		}
-		m.liquidPalette[i] = (uint16(r>>3) << 11) | (uint16(g>>2) << 5) | uint16(b>>3)
-	}
+	m.liquidPalette = newHeatPalette()
 
-	// 3. Populate physics fields with coordinates translated to Fixed-Point
+	// 3. Populate physics fields in pixel units.
 	for i := 0; i < int(m.numBalls); i++ {
-		// Store screenspace pixel position shifted left by 16 bits
-		m.balls[i].x = m.customRandHelper(50, m.width-50) << FPShift
-		m.balls[i].y = m.customRandHelper(50, m.height-50) << FPShift
+		m.balls[i].x = m.customRandFloat(50, float32(m.width-50))
+		m.balls[i].y = m.customRandFloat(50, float32(m.height-50))
 
-		// Initial velocity fractional increments (e.g., 0.5 to 1.5 pixels per frame)
-		m.balls[i].dx = m.customRandHelper(32768, 98304)
-		m.balls[i].dy = m.customRandHelper(32768, 98304)
+		m.balls[i].dx = m.customRandFloat(0.5, 1.5)
+		m.balls[i].dy = m.customRandFloat(0.5, 1.5)
 
 		if m.pseudoRand()%2 == 1 {
 			m.balls[i].dx = -m.balls[i].dx
@@ -146,81 +418,86 @@ func (m *MetaBallEffect) init() {
 			m.balls[i].dy = -m.balls[i].dy
 		}
 
-		// Initialize deformation variables
-		m.balls[i].BaseRadius = 256 // Default standard size scaler
-		for p := 0; p < 8; p++ {
-			m.balls[i].Radii[p] = 0      // At rest perfectly on the circle radius
-			m.balls[i].Velocities[p] = 0 // Static state
+		m.balls[i].points = make([]VerletPoint, m.pointCount)
+		m.balls[i].contourRadii = make([]float32, contourBinCount)
+		for pointIdx := range m.balls[i].points {
+			angle := 2 * math.Pi * float64(pointIdx) / float64(m.pointCount)
+			position := Vec2{
+				x: restRadius * float32(math.Cos(angle)),
+				y: restRadius * float32(math.Sin(angle)),
+			}
+			m.balls[i].points[pointIdx] = VerletPoint{
+				position:         position,
+				previousPosition: position,
+			}
 		}
+		m.balls[i].targetArea = m.balls[i].area()
+		m.balls[i].rebuildContour()
 	}
 }
 
-// updatePhysics applies close-range separation, inertial movement, and wall bounces.
+// updatePhysics applies ring collisions, Verlet integration, movement, and wall bounces.
 func (m *MetaBallEffect) updatePhysics() {
-	// 1. Separate centers that get too close.
+	// 1. Resolve each ball pair once using the deformed ring support radii.
 	for i := 0; i < int(m.numBalls); i++ {
-		for j := 0; j < int(m.numBalls); j++ {
-			if i == j {
-				continue
-			}
-
-			// Calculate vector distance in raw integer screenspace pixels to prevent overlow
-			// To convert 16.16 back to regular pixels, shift right by FPShift (16)
-			ix, iy := m.balls[i].x>>FPShift, m.balls[i].y>>FPShift
-			jx, jy := m.balls[j].x>>FPShift, m.balls[j].y>>FPShift
-
-			dx := jx - ix
-			dy := jy - iy
+		for j := i + 1; j < int(m.numBalls); j++ {
+			dx := m.balls[j].x - m.balls[i].x
+			dy := m.balls[j].y - m.balls[i].y
 			distSq := (dx * dx) + (dy * dy)
-
-			if distSq == 0 {
-				distSq = 1
+			distance := float32(math.Sqrt(float64(distSq)))
+			normal := Vec2{x: 1}
+			if distance > 0 {
+				normal = Vec2{x: dx / distance, y: dy / distance}
 			}
 
-			// If balls smash into each other, deform their radial points on that side!
-			if distSq < m.repulsionDistSq {
-				m.balls[i].dx -= (dx * m.repulsionForce) / distSq
-				m.balls[i].dy -= (dy * m.repulsionForce) / distSq
-
-				// Deform calculation: inject energy into the spring points facing the collision
-				for p := 0; p < 8; p++ {
-					// Add a little chaotic squish when they collide
-					if m.pseudoRand()%100 < 20 {
-						m.balls[i].Velocities[p] -= m.customRandHelper(2000, 8000)
-					}
+			contactDistance := m.balls[i].supportRadius(normal) + m.balls[j].supportRadius(normal.scale(-1))
+			if penetration := contactDistance - distance; penetration > 0 {
+				correction := (penetration - contactSlop) * contactCorrection * 0.5
+				if correction > 0 {
+					m.balls[i].x -= normal.x * correction
+					m.balls[i].y -= normal.y * correction
+					m.balls[j].x += normal.x * correction
+					m.balls[j].y += normal.y * correction
 				}
-			} else if distSq < 25000 {
-				m.balls[i].dx += (dx * m.attractionForce) / 100
-				m.balls[i].dy += (dy * m.attractionForce) / 100
+
+				relativeNormalVelocity := (m.balls[j].dx-m.balls[i].dx)*normal.x + (m.balls[j].dy-m.balls[i].dy)*normal.y
+				closingSpeed := float32(0)
+				if relativeNormalVelocity < 0 {
+					closingSpeed = -relativeNormalVelocity
+					impulse := -(1 + contactRestitution) * relativeNormalVelocity * 0.5
+					m.balls[i].dx -= normal.x * impulse
+					m.balls[i].dy -= normal.y * impulse
+					m.balls[j].dx += normal.x * impulse
+					m.balls[j].dy += normal.y * impulse
+				}
+				m.balls[i].applyContactDent(normal, penetration, closingSpeed)
+				m.balls[j].applyContactDent(normal.scale(-1), penetration, closingSpeed)
+			} else if distance > contactDistance+contactReleaseBand && distSq < 25000 {
+				m.balls[i].dx += dx * m.attractionForce
+				m.balls[i].dy += dy * m.attractionForce
+				m.balls[j].dx -= dx * m.attractionForce
+				m.balls[j].dy -= dy * m.attractionForce
 			}
 		}
 	}
 
-	// 2. Update Spring-Mass Oscillations for the morphing borders
+	// 2. Integrate and constrain each deformable circumference.
 	for i := 0; i < int(m.numBalls); i++ {
-		// Procedural idle jiggle: feed continuous micro-distortions over time
 		if m.frameCount%4 == 0 {
-			targetPoint := m.pseudoRand() % 8
-			m.balls[i].Velocities[targetPoint] += m.customRandHelper(-4000, 4000)
+			targetPoint := int(m.pseudoRand() % uint32(len(m.balls[i].points)))
+			point := &m.balls[i].points[targetPoint]
+			length := point.position.length()
+			if length > 0 {
+				impulse := m.customRandFloat(-0.05, 0.05)
+				normal := point.position.scale(1 / length)
+				point.previousPosition = point.previousPosition.sub(normal.scale(impulse))
+			}
 		}
-
-		for p := 0; p < 8; p++ {
-			// Hooke's Law: Force = -k * displacement
-			// Pulls the point back toward its resting circle radius (0)
-			displacement := m.balls[i].Radii[p]
-			springForce := (-displacement * 15) >> 8 // '15' determines stiffness
-
-			// Apply force to velocity, add damping to slow it down over time
-			m.balls[i].Velocities[p] += springForce
-			m.balls[i].Velocities[p] = (m.balls[i].Velocities[p] * 248) >> 8 // Damping factor
-
-			// Apply velocity to position
-			m.balls[i].Radii[p] += m.balls[i].Velocities[p]
-		}
+		m.balls[i].updateVerlet()
 	}
 	m.frameCount++
 
-	// 3. Apply velocities and handle fixed-point window boundary collisions
+	// 3. Apply velocities and handle window boundary collisions
 	for i := 0; i < int(m.numBalls); i++ {
 		// Velocity drag clamping to prevent kinetic explosions from intense close-up repulsions
 		if m.balls[i].dx > maxVelocity {
@@ -236,34 +513,38 @@ func (m *MetaBallEffect) updatePhysics() {
 			m.balls[i].dy = -maxVelocity
 		}
 
-		// Update position values using raw 16.16 addition
 		m.balls[i].x += m.balls[i].dx
 		m.balls[i].y += m.balls[i].dy
 
-		// Dynamic padding bounds checked against fixed-point dimensions
-		padding := int32(15 << FPShift)
-
-		if m.balls[i].x <= padding {
-			m.balls[i].x = padding
-			m.balls[i].dx = -m.balls[i].dx
-		} else if m.balls[i].x >= m.widthFP-padding {
-			m.balls[i].x = m.widthFP - padding
-			m.balls[i].dx = -m.balls[i].dx
+		ball := &m.balls[i]
+		collided := false
+		if penetration := ball.supportRadius(Vec2{x: -1}) - ball.x; penetration > 0 {
+			ball.resolveWallContact(Vec2{x: -1}, penetration)
+			collided = true
 		}
-
-		if m.balls[i].y <= padding {
-			m.balls[i].y = padding
-			m.balls[i].dy = -m.balls[i].dy
-		} else if m.balls[i].y >= m.heightFP-padding {
-			m.balls[i].y = m.heightFP - padding
-			m.balls[i].dy = -m.balls[i].dy
+		if penetration := ball.x + ball.supportRadius(Vec2{x: 1}) - float32(m.width); penetration > 0 {
+			ball.resolveWallContact(Vec2{x: 1}, penetration)
+			collided = true
+		}
+		if penetration := ball.supportRadius(Vec2{y: -1}) - ball.y; penetration > 0 {
+			ball.resolveWallContact(Vec2{y: -1}, penetration)
+			collided = true
+		}
+		if penetration := ball.y + ball.supportRadius(Vec2{y: 1}) - float32(m.height); penetration > 0 {
+			ball.resolveWallContact(Vec2{y: 1}, penetration)
+			collided = true
+		}
+		if collided {
+			ball.solveConstraints()
+			ball.keepInside(float32(m.width), float32(m.height))
 		}
 	}
+	m.restoreTranslationalEnergy()
 }
 
 // ProcessFrame runs one physics update and rendering step directly into the target slice
 func (m *MetaBallEffect) update() {
-	// Step 1: Execute fixed-point movement and collision physics
+	// Step 1: Execute movement and collision physics
 	m.updatePhysics()
 
 	// Step 2: Clear screen grid
@@ -273,9 +554,9 @@ func (m *MetaBallEffect) update() {
 
 	// Step 3: Map field overlays onto screenspace coordinates
 	for b := 0; b < int(m.numBalls); b++ {
-		// Convert fixed-point coordinate maps down to normal integer pixel offsets for rendering lookups
-		bx := m.balls[b].x >> FPShift
-		by := m.balls[b].y >> FPShift
+		m.balls[b].rebuildContour()
+		bx := int32(m.balls[b].x)
+		by := int32(m.balls[b].y)
 
 		for y := int32(0); y < m.height; y++ {
 			dy := y - by
@@ -289,56 +570,16 @@ func (m *MetaBallEffect) update() {
 				if dx < -LutRadius || dx >= LutRadius {
 					continue
 				}
-				// --- 90s Morphing Optimization Engine ---
-				// Determine the angle index (0 to 7) of this pixel relative to ball center.
-				// A fast octant selector avoiding expensive math.atan2:
-				var angleIdx int
-				absX := dx
-				if absX < 0 {
-					absX = -absX
-				}
-				absY := dy
-				if absY < 0 {
-					absY = -absY
-				}
 
-				if dx >= 0 && dy >= 0 { // Quadrant 1
-					if absX > absY {
-						angleIdx = 0
-					} else {
-						angleIdx = 1
-					}
-				} else if dx < 0 && dy >= 0 { // Quadrant 2
-					if absX < absY {
-						angleIdx = 2
-					} else {
-						angleIdx = 3
-					}
-				} else if dx < 0 && dy < 0 { // Quadrant 3
-					if absX > absY {
-						angleIdx = 4
-					} else {
-						angleIdx = 5
-					}
-				} else { // Quadrant 4
-					if absX < absY {
-						angleIdx = 6
-					} else {
-						angleIdx = 7
-					}
-				}
+				angleTableIdx := (dy+LutRadius)*LutSize + dx + LutRadius
+				angleBin := m.angleBinTable[angleTableIdx]
+				contourRadius := m.balls[b].contourRadii[angleBin]
+				warpScale := float32(restRadius) / contourRadius
+				distX := float32(dx) * warpScale
+				distY := float32(dy) * warpScale
 
-				// Fetch the spring deformation value for this angle segment
-				deformation := m.balls[b].Radii[angleIdx] >> 12 // Scale down to manageable range
-
-				// Apply the deformation to warp the spatial lookup coordinates.
-				// If deformation is positive (extended), it pulls smaller table cells,
-				// pushing the threshold perimeter further outward!
-				distX := dx - (dx * deformation / 256)
-				distY := dy - (dy * deformation / 256)
-
-				lutX := distX + LutRadius
-				lutY := distY + LutRadius
+				lutX := int32(distX) + LutRadius
+				lutY := int32(distY) + LutRadius
 
 				// Bounds safety checking
 				if lutX >= 0 && lutX < LutSize && lutY >= 0 && lutY < LutSize {
@@ -370,7 +611,7 @@ func (m *MetaBallEffect) render(frameBuffer *FrameBuffer) {
 	}
 }
 
-func (m *MetaBallEffect) ProcessFrame(frameBuffer *FrameBuffer) {
+func (m *MetaBallEffect) ProcessFrame(deltaTime float32, frameBuffer *FrameBuffer) {
 	m.update()
 	m.render(frameBuffer)
 }

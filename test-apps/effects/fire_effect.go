@@ -46,7 +46,7 @@ func NewFireEffect(width, height int32) *FireEffect {
 	return fe
 }
 
-func (fe *FireEffect) ProcessFrame(frameBuffer *FrameBuffer) {
+func (fe *FireEffect) ProcessFrame(deltaTime float32, frameBuffer *FrameBuffer) {
 	fe.Update()
 	fe.Render(frameBuffer)
 }
@@ -168,10 +168,10 @@ func (fe *FireEffect) Render(frameBuffer *FrameBuffer) {
 				color := fe.palette[paletteIndex]
 				frameBuffer.Pixels[int(y)*frameBuffer.Width+int(x)+int(xOffset)] = color
 			} else {
-				r := 255
-				g := 255
-				b := 32
-				color := (uint16(r>>3) << 11) | (uint16(g>>2) << 5) | uint16(b>>3)
+				r := uint8(255)
+				g := uint8(255)
+				b := uint8(32)
+				color := convertToRGB565(r, g, b)
 				frameBuffer.Pixels[int(y)*frameBuffer.Width+int(x)+int(xOffset)] = color
 			}
 			x++
@@ -179,51 +179,4 @@ func (fe *FireEffect) Render(frameBuffer *FrameBuffer) {
 		y++
 	}
 
-	// Pass 2: Render the bottom 8 lines with a live pixel-blending filter
-	// for y < fe.fire_height {
-	// 	x := int32(0)
-	// 	for x < fe.fire_width {
-	// 		current_idx := y*fe.fire_width + x
-
-	// 		// Safe boundary checks for horizontal neighbors
-	// 		var left, right, mid, up uint8
-	// 		if x > 0 {
-	// 			left = fe.fire_grid[current_idx-1]
-	// 		} else {
-	// 			left = fe.fire_grid[current_idx]
-	// 		}
-
-	// 		if x < fe.fire_width-1 {
-	// 			right = fe.fire_grid[current_idx+1]
-	// 		} else {
-	// 			right = fe.fire_grid[current_idx]
-	// 		}
-
-	// 		mid = fe.fire_grid[current_idx]
-
-	// 		// Safe boundary check for vertical neighbor above
-	// 		if y > 0 {
-	// 			up = fe.fire_grid[current_idx-fe.fire_width]
-	// 		} else {
-	// 			up = mid
-	// 		}
-
-	// 		// Compute a 4-way spatial average of raw heat intensities
-	// 		blurred_intensity := (left + right + mid + up) >> 2 // Divide by 4
-
-	// 		// Map the smoothed value directly to the 32-bit screen output
-	// 		frameBuffer.Pixels[int(y)*frameBuffer.Width+int(x)+int(xOffset)] = fe.palette[blurred_intensity]
-	// 		x++
-	// 	}
-	// 	y++
-	// }
-	// for y < fe.fire_height {
-	// 	x := int32(0)
-	// 	for x < fe.fire_width {
-	// 		color := uint16(31) << 11
-	// 		frameBuffer.Pixels[int(y)*frameBuffer.Width+int(x)+int(xOffset)] = color
-	// 		x++
-	// 	}
-	// 	y++
-	// }
 }
