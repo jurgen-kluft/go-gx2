@@ -442,7 +442,7 @@ func BenchmarkMetaBallProcessFrame(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for iteration := 0; iteration < b.N; iteration++ {
-				effect.ProcessFrame(frameBuffer)
+				effect.ProcessFrame(1.0/60.0, frameBuffer)
 			}
 		})
 	}
