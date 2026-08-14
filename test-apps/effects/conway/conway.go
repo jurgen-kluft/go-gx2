@@ -1,6 +1,10 @@
-package main
+package fx_conway
 
-import rl "github.com/gen2brain/raylib-go/raylib"
+import (
+	rl "github.com/gen2brain/raylib-go/raylib"
+	_ "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
+	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
+)
 
 type Tile struct {
 	R     uint16
@@ -48,7 +52,7 @@ type ConwayGameOfLife struct {
 	Next    *Board
 }
 
-func NewConwayEffect(screenWidth, screenHeight int32) *ConwayGameOfLife {
+func NewEffect(screenWidth, screenHeight int32) *ConwayGameOfLife {
 	state := &ConwayGameOfLife{
 		ScreenWidth:  screenWidth,
 		ScreenHeight: screenHeight,
@@ -138,7 +142,7 @@ func (s *ConwayGameOfLife) swapBoards() {
 	s.Current, s.Next = s.Next, s.Current
 }
 
-func (s *ConwayGameOfLife) toggleCell(x, y int32) {
+func (s *ConwayGameOfLife) ToggleCell(x, y int32) {
 	s.Current.tiles[x][y].Alive = !s.Current.tiles[x][y].Alive
 	s.Current.tiles[x][y].R = s.SelectedR
 	s.Current.tiles[x][y].G = s.SelectedG
@@ -146,7 +150,7 @@ func (s *ConwayGameOfLife) toggleCell(x, y int32) {
 	s.Current.tiles[x][y].A = s.SelectedA
 }
 
-func (s *ConwayGameOfLife) resetBoard() {
+func (s *ConwayGameOfLife) Reset() {
 	s.BoardA.clear()
 	s.BoardB.clear()
 	s.Current = s.BoardA
@@ -294,7 +298,7 @@ func blendNeighborColors(board *Board, x, y int) (r, g, b uint8) {
 	return uint8(rr / count), uint8(gg / count), uint8(bb / count)
 }
 
-func (s *ConwayGameOfLife) ProcessFrame(deltaTime float32, frameBuffer *FrameBuffer) {
+func (s *ConwayGameOfLife) ProcessFrame(deltaTime float32, frameBuffer *fx_common.FrameBuffer) {
 	s.Lapsed += deltaTime
 
 	if s.Lapsed >= s.Step {
@@ -306,7 +310,7 @@ func (s *ConwayGameOfLife) ProcessFrame(deltaTime float32, frameBuffer *FrameBuf
 	s.drawBoard(frameBuffer)
 }
 
-func (s *ConwayGameOfLife) drawBoard(frameBuffer *FrameBuffer) {
+func (s *ConwayGameOfLife) drawBoard(frameBuffer *fx_common.FrameBuffer) {
 	for x, column := range s.Current.tiles {
 		for y, tile := range column {
 			rect := rl.Rectangle{
@@ -322,7 +326,7 @@ func (s *ConwayGameOfLife) drawBoard(frameBuffer *FrameBuffer) {
 	}
 }
 
-func drawRectangle(frameBuffer *FrameBuffer, rect rl.Rectangle, color uint16) {
+func drawRectangle(frameBuffer *fx_common.FrameBuffer, rect rl.Rectangle, color uint16) {
 	startX := int(rect.X)
 	startY := int(rect.Y)
 	endX := int(rect.X + rect.Width)
@@ -357,5 +361,5 @@ func getTileColor(tile Tile, settings *RenderSettings) uint16 {
 	r8 := uint8((r * a) / 255)
 	g8 := uint8((g * a) / 255)
 	b8 := uint8((b * a) / 255)
-	return convertToRGB565(r8, g8, b8)
+	return fx_common.ConvertToRGB565(r8, g8, b8)
 }

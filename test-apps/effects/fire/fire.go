@@ -1,5 +1,7 @@
 package main
 
+import fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
+
 type FireEffect struct {
 	rand_state  uint32   // Random number generator state for deterministic randomness
 	fire_grid   []uint8  // 8-bit[fire_width * fire_height] heat values for each pixel in the fire effect
@@ -46,7 +48,7 @@ func NewFireEffect(width, height int32) *FireEffect {
 	return fe
 }
 
-func (fe *FireEffect) ProcessFrame(deltaTime float32, frameBuffer *FrameBuffer) {
+func (fe *FireEffect) ProcessFrame(deltaTime float32, frameBuffer *fx_common.FrameBuffer) {
 	fe.Update()
 	fe.Render(frameBuffer)
 }
@@ -143,7 +145,7 @@ func (fe *FireEffect) Update() {
 	}
 }
 
-func (fe *FireEffect) Render(frameBuffer *FrameBuffer) {
+func (fe *FireEffect) Render(frameBuffer *fx_common.FrameBuffer) {
 	xOffset := (int(frameBuffer.Width) - int(fe.fire_width)) / 2
 
 	n := int32(2)
@@ -171,7 +173,7 @@ func (fe *FireEffect) Render(frameBuffer *FrameBuffer) {
 				r := uint8(255)
 				g := uint8(255)
 				b := uint8(32)
-				color := convertToRGB565(r, g, b)
+				color := fx_common.ConvertToRGB565(r, g, b)
 				frameBuffer.Pixels[int(y)*frameBuffer.Width+int(x)+int(xOffset)] = color
 			}
 			x++

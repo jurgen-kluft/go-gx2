@@ -2,13 +2,10 @@ package main
 
 import (
 	rl "github.com/gen2brain/raylib-go/raylib"
+	_ "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
+	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
+	fx_conway "github.com/jurgen-kluft/go-gx2/test-apps/effects/conway"
 )
-
-type FrameBuffer struct {
-	Width  int
-	Height int
-	Pixels []uint16
-}
 
 func rgb565ToColor(c uint16) rl.Color {
 	r := uint8((c >> 11) & 0x1F)
@@ -32,7 +29,7 @@ func main() {
 
 	rl.SetTargetFPS(60)
 
-	frameBuffer := &FrameBuffer{
+	frameBuffer := &fx_common.FrameBuffer{
 		Width:  screenWidth,
 		Height: screenHeight,
 		Pixels: make([]uint16, screenWidth*screenHeight),
@@ -42,7 +39,7 @@ func main() {
 	//effect := NewMetaBallEffect(12345, 10, 16, int32(screenWidth), int32(screenHeight)) // Create a metaball effect with 10 balls
 	//effect := NewMetaball2Effect()
 	//effect := NewStarFieldEffect(2000) // Create a star field effect with 1000 stars
-	effect := NewConwayEffect(int32(screenWidth), int32(screenHeight)) // Create a Conway's Game of Life effect
+	effect := fx_conway.NewEffect(int32(screenWidth), int32(screenHeight)) // Create a Conway's Game of Life effect
 
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()

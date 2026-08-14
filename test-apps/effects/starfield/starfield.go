@@ -1,19 +1,23 @@
 package main
 
+import (
+	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
+)
+
 type StarFieldEffect struct {
-	rand_state    RandU     // Random number generator state for deterministic randomness
-	starX         []float32 // X positions of stars
-	starY         []float32 // Y positions of stars
-	starZ         []float32 // Z positions of stars (depth)
-	starPreviousZ []float32 // Previous Z positions of stars (for motion blur)
-	focus         float32   // Focal length for perspective projection
-	numStars      int       // Number of stars in the field
-	palette       []uint16  // color palette mapping distance to RGB565 colors
+	rand_state    fx_common.RandU // Random number generator state for deterministic randomness
+	starX         []float32       // X positions of stars
+	starY         []float32       // Y positions of stars
+	starZ         []float32       // Z positions of stars (depth)
+	starPreviousZ []float32       // Previous Z positions of stars (for motion blur)
+	focus         float32         // Focal length for perspective projection
+	numStars      int             // Number of stars in the field
+	palette       []uint16        // color palette mapping distance to RGB565 colors
 }
 
 func NewStarFieldEffect(numStars int) *StarFieldEffect {
 	sfe := &StarFieldEffect{
-		rand_state:    12345, // Initialize with a default seed
+		rand_state:    fx_common.RandU(12345), // Initialize with a default seed
 		starX:         make([]float32, numStars),
 		starY:         make([]float32, numStars),
 		starZ:         make([]float32, numStars),
@@ -28,14 +32,14 @@ func NewStarFieldEffect(numStars int) *StarFieldEffect {
 		r := uint8(255 - (i / 2)) // Decrease red component
 		g := uint8(255 - (i / 2)) // Decrease green component
 		b := uint8(255 - (i / 2)) // Decrease blue component
-		sfe.palette[i] = convertToRGB565(r, g, b)
+		sfe.palette[i] = fx_common.ConvertToRGB565(r, g, b)
 	}
 
 	// Initialize star positions and depths
 	for i := 0; i < numStars; i++ {
-		sfe.starX[i] = (&sfe.rand_state).customRandFloat(-sfe.focus, sfe.focus)
-		sfe.starY[i] = (&sfe.rand_state).customRandFloat(-sfe.focus, sfe.focus)
-		sfe.starZ[i] = (&sfe.rand_state).customRandFloat(0.2, 1.0) // Z position (depth)
+		sfe.starX[i] = (&sfe.rand_state).CustomRandFloat(-sfe.focus, sfe.focus)
+		sfe.starY[i] = (&sfe.rand_state).CustomRandFloat(-sfe.focus, sfe.focus)
+		sfe.starZ[i] = (&sfe.rand_state).CustomRandFloat(0.2, 1.0) // Z position (depth)
 		sfe.starPreviousZ[i] = sfe.starZ[i]                        // Initialize previous Z to current Z
 	}
 
@@ -47,15 +51,15 @@ func (sfe *StarFieldEffect) update(speed float32) {
 		sfe.starPreviousZ[i] = sfe.starZ[i]
 		sfe.starZ[i] -= speed
 		if sfe.starZ[i] <= float32(0.0001) {
-			sfe.starX[i] = (&sfe.rand_state).customRandFloat(-sfe.focus, sfe.focus)
-			sfe.starY[i] = (&sfe.rand_state).customRandFloat(-sfe.focus, sfe.focus)
+			sfe.starX[i] = (&sfe.rand_state).CustomRandFloat(-sfe.focus, sfe.focus)
+			sfe.starY[i] = (&sfe.rand_state).CustomRandFloat(-sfe.focus, sfe.focus)
 			sfe.starZ[i] = float32(1.0)
 			sfe.starPreviousZ[i] = sfe.starZ[i]
 		}
 	}
 }
 
-func (sfe *StarFieldEffect) render(frameBuffer *FrameBuffer) {
+func (sfe *StarFieldEffect) render(frameBuffer *fx_common.FrameBuffer) {
 	width := float32(frameBuffer.Width)
 	height := float32(frameBuffer.Height)
 
@@ -83,9 +87,9 @@ func (sfe *StarFieldEffect) render(frameBuffer *FrameBuffer) {
 	}
 }
 
-func drawLine(frameBuffer *FrameBuffer, x0, y0, x1, y1 int, color uint16) {
-	dx := abs(x1 - x0)
-	dy := abs(y1 - y0)
+func drawLine(frameBuffer *fx_common.FrameBuffer, x0, y0, x1, y1 int, color uint16) {
+	dx := fx_common.Abs(x1 - x0)
+	dy := fx_common.Abs(y1 - y0)
 	sx := 1
 	if x0 > x1 {
 		sx = -1
@@ -124,7 +128,7 @@ func drawLine(frameBuffer *FrameBuffer, x0, y0, x1, y1 int, color uint16) {
 	}
 }
 
-func (sfe *StarFieldEffect) ProcessFrame(deltaTime float32, frameBuffer *FrameBuffer) {
+func (sfe *StarFieldEffect) ProcessFrame(deltaTime float32, frameBuffer *fx_common.FrameBuffer) {
 	sfe.update(float32(0.01)) // Update star positions with a speed factor
 	sfe.render(frameBuffer)   // Render the updated star field
 }

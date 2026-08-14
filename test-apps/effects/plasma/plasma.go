@@ -1,6 +1,10 @@
 package main
 
-import "math"
+import (
+	"math"
+
+	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
+)
 
 const (
 	renderScale   = 8
@@ -82,7 +86,7 @@ func NewPlasmaEffect(width, height int16) *PlasmaEffect {
 	return r
 }
 
-func (r *PlasmaEffect) draw(t float32, fb *FrameBuffer) {
+func (r *PlasmaEffect) draw(t float32, fb *fx_common.FrameBuffer) {
 	r.generateField(t)
 	r.writeBands(fb)
 }
@@ -144,7 +148,7 @@ func (r *PlasmaEffect) generateField(t float32) {
 	}
 }
 
-func (r *PlasmaEffect) writeBands(fb *FrameBuffer) {
+func (r *PlasmaEffect) writeBands(fb *fx_common.FrameBuffer) {
 	beginRGB565(fb, 0, 0, int16(r.width), int16(r.height))
 
 	for gy := 0; gy < r.lowH; gy++ {
@@ -173,10 +177,10 @@ func (r *PlasmaEffect) writeBands(fb *FrameBuffer) {
 	}
 }
 
-func writeRGB565(fb *FrameBuffer, x, y, w, h int16, data []uint8) {
+func writeRGB565(fb *fx_common.FrameBuffer, x, y, w, h int16, data []uint8) {
 }
 
-func beginRGB565(fb *FrameBuffer, x, y, w, h int16) {
+func beginRGB565(fb *fx_common.FrameBuffer, x, y, w, h int16) {
 }
 
 func rgb565(r, g, b float32) uint16 {
