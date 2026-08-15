@@ -21,8 +21,8 @@ func rgb565ToColor(c uint16) rl.Color {
 
 func main() {
 
-	screenWidth := 480
-	screenHeight := 480
+	screenWidth := int32(480)
+	screenHeight := int32(480)
 
 	rl.InitWindow(int32(screenWidth), int32(screenHeight), "SDF Font Rendering")
 	defer rl.CloseWindow()
@@ -55,11 +55,11 @@ func main() {
 		effect.ProcessFrame(delta, frameBuffer)
 
 		// Draw framebuffer pixels to the screen
-		for y := 0; y < frameBuffer.Height; y++ {
-			for x := 0; x < frameBuffer.Width; x++ {
+		for y := int32(0); y < frameBuffer.Height; y++ {
+			for x := int32(0); x < frameBuffer.Width; x++ {
 				pixel := frameBuffer.Pixels[y*frameBuffer.Width+x]
 				color := rgb565ToColor(pixel)
-				rl.DrawPixel(int32(x), int32(y), color)
+				rl.DrawPixel(x, y, color)
 			}
 		}
 

@@ -83,18 +83,18 @@ func (sfe *StarFieldEffect) render(frameBuffer *fx_common.FrameBuffer) {
 		color := sfe.palette[colorIndex]
 
 		// Draw the star as a line from previous position to current position for motion blur
-		drawLine(frameBuffer, int(prevX), int(prevY), int(x), int(y), color)
+		drawLine(frameBuffer, int32(prevX), int32(prevY), int32(x), int32(y), color)
 	}
 }
 
-func drawLine(frameBuffer *fx_common.FrameBuffer, x0, y0, x1, y1 int, color uint16) {
+func drawLine(frameBuffer *fx_common.FrameBuffer, x0, y0, x1, y1 int32, color uint16) {
 	dx := fx_common.Abs(x1 - x0)
 	dy := fx_common.Abs(y1 - y0)
-	sx := 1
+	sx := int32(1)
 	if x0 > x1 {
 		sx = -1
 	}
-	sy := 1
+	sy := int32(1)
 	if y0 > y1 {
 		sy = -1
 	}

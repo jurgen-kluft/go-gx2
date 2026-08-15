@@ -3,8 +3,8 @@ package fx_common
 import "math"
 
 type FrameBuffer struct {
-	Width  int
-	Height int
+	Width  int32
+	Height int32
 	Pixels []uint16
 }
 
@@ -37,7 +37,7 @@ func (v Vec2) Length() float32 {
 	return float32(math.Sqrt(float64(v.x*v.x + v.y*v.y)))
 }
 
-func Abs(value int) int {
+func Abs(value int32) int32 {
 	if value < 0 {
 		return -value
 	}

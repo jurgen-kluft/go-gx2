@@ -155,7 +155,7 @@ func (fe *FireEffect) Render(frameBuffer *fx_common.FrameBuffer) {
 		for x < fe.fire_width {
 			idx := y*fe.fire_width + x
 			color := fe.palette[fe.fire_grid[idx]]
-			frameBuffer.Pixels[int(y)*frameBuffer.Width+int(x)+int(xOffset)] = color
+			frameBuffer.Pixels[int32(y)*frameBuffer.Width+int32(x)+int32(xOffset)] = color
 			x++
 		}
 		y++
@@ -168,13 +168,13 @@ func (fe *FireEffect) Render(frameBuffer *fx_common.FrameBuffer) {
 			paletteIndex := fe.fire_grid[idx]
 			if paletteIndex > 8 {
 				color := fe.palette[paletteIndex]
-				frameBuffer.Pixels[int(y)*frameBuffer.Width+int(x)+int(xOffset)] = color
+				frameBuffer.Pixels[int32(y)*frameBuffer.Width+int32(x)+int32(xOffset)] = color
 			} else {
 				r := uint8(255)
 				g := uint8(255)
 				b := uint8(32)
 				color := fx_common.ConvertToRGB565(r, g, b)
-				frameBuffer.Pixels[int(y)*frameBuffer.Width+int(x)+int(xOffset)] = color
+				frameBuffer.Pixels[int32(y)*frameBuffer.Width+int32(x)+int32(xOffset)] = color
 			}
 			x++
 		}

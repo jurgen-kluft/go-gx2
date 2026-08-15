@@ -327,10 +327,10 @@ func (s *ConwayGameOfLife) drawBoard(frameBuffer *fx_common.FrameBuffer) {
 }
 
 func drawRectangle(frameBuffer *fx_common.FrameBuffer, rect rl.Rectangle, color uint16) {
-	startX := int(rect.X)
-	startY := int(rect.Y)
-	endX := int(rect.X + rect.Width)
-	endY := int(rect.Y + rect.Height)
+	startX := int32(rect.X)
+	startY := int32(rect.Y)
+	endX := int32(rect.X + rect.Width)
+	endY := int32(rect.Y + rect.Height)
 
 	for y := startY; y < endY; y++ {
 		for x := startX; x < endX; x++ {
