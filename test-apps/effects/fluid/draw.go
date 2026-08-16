@@ -7,18 +7,20 @@ import (
 )
 
 func (f *FluidEffect) DrawVelocityField(fb *fx_common.FrameBuffer, c color) {
-	cellSize := float32(f.Size)
-	halfCellSize := 0.5 * cellSize
+	cellCountX := float32(f.CellCountX)
+	halfCellSizeX := 0.5 * cellCountX
+	cellCountY := float32(f.CellCountY)
+	halfCellSizeY := 0.5 * cellCountY
 
-	yIdx := 0
-	for y := 1; y <= f.Size; y++ {
+	yIdx := int32(0)
+	for y := int32(1); y <= f.CellCountY; y++ {
 		xIdx := yIdx + 1
-		for x := 1; x <= f.Size; x++ {
-			xv := f.CurrentVelocity.XVel[xIdx] * cellSize
-			yv := f.CurrentVelocity.YVel[xIdx] * cellSize
+		for x := int32(1); x <= f.CellCountX; x++ {
+			xv := f.CurrentVelocity.XVel[xIdx] * cellCountX
+			yv := f.CurrentVelocity.YVel[xIdx] * cellCountY
 
-			posX := float32(x)*cellSize + halfCellSize
-			posY := float32(y)*cellSize + halfCellSize
+			posX := float32(x)*cellCountX + halfCellSizeX
+			posY := float32(y)*cellCountY + halfCellSizeY
 			endX := posX + xv
 			endY := posY + yv
 
@@ -26,7 +28,7 @@ func (f *FluidEffect) DrawVelocityField(fb *fx_common.FrameBuffer, c color) {
 
 			xIdx++
 		}
-		yIdx += f.PaddedSize
+		yIdx += f.PaddedCellCountX
 	}
 }
 
@@ -87,12 +89,13 @@ func (f *FluidEffect) DrawDensityField(fb *fx_common.FrameBuffer, c color, color
 		return hsvToRGB(hue, s, value)
 	}
 
-	size := float32(f.Size)
+	sizeX := float32(f.CellCountX)
+	sizeY := float32(f.CellCountY)
 
-	y0Idx := 0
-	for y := 0; y < f.Size; y++ {
-		y1Idx := y0Idx + f.PaddedSize
-		for x := 0; x < f.Size; x++ {
+	y0Idx := int32(0)
+	for y := int32(0); y < f.CellCountY; y++ {
+		y1Idx := y0Idx + f.PaddedCellCountX
+		for x := int32(0); x < f.CellCountX; x++ {
 			x0Idx := y0Idx
 			x1Idx := x0Idx + x
 			x2Idx := y1Idx
@@ -116,18 +119,12 @@ func (f *FluidEffect) DrawDensityField(fb *fx_common.FrameBuffer, c color, color
 			topRightColor := createColor(vel3, density3)
 			bottomRightColor := createColor(vel1, density1)
 
-			posX := int32(float32(x) * size)
-			posY := int32(float32(y) * size)
+			posX := int32(float32(x) * sizeX)
+			posY := int32(float32(y) * sizeY)
 
-			// r.DrawRectangleGradientEx(r.Rectangle{
-			// 	X:      posX,
-			// 	Y:      posY,
-			// 	Width:  size,
-			// 	Height: size,
-			// }, topLeftColor, bottomLeftColor, topRightColor, bottomRightColor)
-			drawRectangleGradient(fb, posX, posY, int32(size), int32(size), topLeftColor, bottomLeftColor, topRightColor, bottomRightColor)
+			drawRectangleGradient(fb, posX, posY, int32(sizeX), int32(sizeY), topLeftColor, bottomLeftColor, topRightColor, bottomRightColor)
 		}
-		y0Idx += f.PaddedSize
+		y0Idx += f.PaddedCellCountX
 	}
 }
 

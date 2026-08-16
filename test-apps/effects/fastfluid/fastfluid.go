@@ -8,13 +8,18 @@ func NewEffect(width, height int32) *FluidEffect {
 	// Add 2 to both dimensions to create the outer boundary padding layer
 	paddedX := int32(width + 2)
 	paddedY := int32(height + 2)
-	totalCells := paddedX * paddedY
 
-	return &FluidEffect{
+	bounds := FluidBounds{
 		CellCountX:       int32(width),
 		CellCountY:       int32(height),
 		PaddedCellCountX: paddedX,
 		PaddedCellCountY: paddedY,
+	}
+
+	totalCells := paddedX * paddedY
+
+	return &FluidEffect{
+		Bounds: bounds,
 
 		// Default screen-saver balance values (0-255 scale)
 		Viscosity:     15, // How thick the fluid feels
@@ -104,13 +109,13 @@ const (
 	boundaryReflectY                     // 2: Reflect Y-velocities at horizontal walls
 )
 
-func (f *FluidEffect) advectDensityFixedPoint(grid []uint8, gridPrev []uint8, xVelocities, yVelocities []int16) {
-	paddedX := f.Bounds.PaddedCellCountX
-	cellX := int32(f.Bounds.CellCountX)
-	cellY := int32(f.Bounds.CellCountY)
+func advectDensityFixedPoint(bounds FluidBounds, grid []uint8, gridPrev []uint8, xVelocities, yVelocities []int16) {
+	paddedX := bounds.PaddedCellCountX
+	cellX := int32(bounds.CellCountX)
+	cellY := int32(bounds.CellCountY)
 	const dt_q12 int32 = 68 // Constant 60 FPS scaling factor
 
-	limit := paddedX * f.Bounds.PaddedCellCountY
+	limit := paddedX * bounds.PaddedCellCountY
 	grid = grid[:limit]
 	gridPrev = gridPrev[:limit]
 	xVel := xVelocities[:limit]
@@ -160,17 +165,17 @@ func (f *FluidEffect) advectDensityFixedPoint(grid []uint8, gridPrev []uint8, xV
 		}
 		yIdx += paddedX
 	}
-	setBoundariesUint8(f.Bounds, grid)
+	setDensityBoundaries(bounds, grid)
 }
 
-func (f *FluidEffect) advectVelocityFixedPoint(b boundaryType, grid []int16, gridPrev []int16, xVelocities, yVelocities []int16) {
-	paddedX := f.Bounds.PaddedCellCountX
-	cellX := int32(f.Bounds.CellCountX)
-	cellY := int32(f.Bounds.CellCountY)
+func advectVelocity(bounds FluidBounds, b boundaryType, grid []int16, gridPrev []int16, xVelocities, yVelocities []int16) {
+	paddedX := bounds.PaddedCellCountX
+	cellX := int32(bounds.CellCountX)
+	cellY := int32(bounds.CellCountY)
 	const dt_q12 int32 = 68 // Constant 60 FPS scaling factor
 
 	// Pre-slice truncate to entirely remove Go's hidden bounds checks
-	limit := paddedX * f.Bounds.PaddedCellCountY
+	limit := paddedX * bounds.PaddedCellCountY
 	grid = grid[:limit]
 	gridPrev = gridPrev[:limit]
 	xVel := xVelocities[:limit]
@@ -232,16 +237,16 @@ func (f *FluidEffect) advectVelocityFixedPoint(b boundaryType, grid []int16, gri
 		yIdx += paddedX
 	}
 
-	f.setBoundariesInt16(b, grid)
+	setVelocityBoundaries(bounds, b, grid)
 }
 
-func (f *FluidEffect) projectFixedPoint(xVel, yVel []int16, p, div []int16) {
-	paddedX := f.Bounds.PaddedCellCountX
-	cellX := int32(f.Bounds.CellCountX)
-	cellY := int32(f.Bounds.CellCountY)
+func projectVelocity(bounds FluidBounds, xVel, yVel []int16, p, div []int16, relaxationIterations int32) {
+	paddedX := bounds.PaddedCellCountX
+	cellX := int32(bounds.CellCountX)
+	cellY := int32(bounds.CellCountY)
 
 	// Pre-slice truncate to entirely remove Go's hidden bounds checks
-	limit := paddedX * f.Bounds.PaddedCellCountY
+	limit := paddedX * bounds.PaddedCellCountY
 	xVel = xVel[:limit]
 	yVel = yVel[:limit]
 	p = p[:limit]
@@ -268,16 +273,16 @@ func (f *FluidEffect) projectFixedPoint(xVel, yVel []int16, p, div []int16) {
 	}
 
 	// Apply boundaries to the helper arrays
-	f.setBoundariesInt16(boundaryCopy, div)
-	f.setBoundariesInt16(boundaryCopy, p)
+	setVelocityBoundaries(bounds, boundaryCopy, div)
+	setVelocityBoundaries(bounds, boundaryCopy, p)
 
 	// -------------------------------------------------------------------------
-	// STEP 2: Jacobi Relaxation (4 Iterations Only - The Screen-saver Sweet Spot)
+	// STEP 2: Jacobi Relaxation to Solve for Pressure
 	// -------------------------------------------------------------------------
 	// In standard solvers, each cell is calculated as: (L + R + U + D - div) / 4.
 	// Since dividing by 4 is a simple bit-shift right (>> 2), this loop executes
 	// in pure 1-cycle integer assembly instructions!
-	for iter := int32(0); iter < f.RelaxationIterations; iter++ {
+	for iter := int32(0); iter < relaxationIterations; iter++ {
 		yIdx = paddedX
 		for y := int32(1); y <= cellY; y++ {
 			xIdx := yIdx + 1
@@ -291,7 +296,7 @@ func (f *FluidEffect) projectFixedPoint(xVel, yVel []int16, p, div []int16) {
 			}
 			yIdx += paddedX
 		}
-		f.setBoundariesInt16(boundaryCopy, p)
+		setVelocityBoundaries(bounds, boundaryCopy, p)
 	}
 
 	// -------------------------------------------------------------------------
@@ -311,11 +316,11 @@ func (f *FluidEffect) projectFixedPoint(xVel, yVel []int16, p, div []int16) {
 	}
 
 	// Restore physical velocity boundaries
-	f.setBoundariesInt16(boundaryReflectX, xVel)
-	f.setBoundariesInt16(boundaryReflectY, yVel)
+	setVelocityBoundaries(bounds, boundaryReflectX, xVel)
+	setVelocityBoundaries(bounds, boundaryReflectY, yVel)
 }
 
-func setBoundariesUint8(bounds FluidBounds, grid []uint8) {
+func setDensityBoundaries(bounds FluidBounds, grid []uint8) {
 	paddedX := bounds.PaddedCellCountX
 	cellX := int32(bounds.CellCountX)
 	cellY := int32(bounds.CellCountY)
@@ -360,13 +365,13 @@ func setBoundariesUint8(bounds FluidBounds, grid []uint8) {
 	grid[botRightIdx] = uint8((uint16(grid[botRightIdx-1]) + uint16(grid[botRightIdx-paddedX])) >> 1)
 }
 
-func (f *FluidEffect) setBoundariesInt16(b boundaryType, grid []int16) {
-	paddedX := f.Bounds.PaddedCellCountX
-	cellX := f.Bounds.CellCountX
-	cellY := f.Bounds.CellCountY
+func setVelocityBoundaries(bounds FluidBounds, b boundaryType, grid []int16) {
+	paddedX := bounds.PaddedCellCountX
+	cellX := bounds.CellCountX
+	cellY := bounds.CellCountY
 
 	// Clean truncation to eliminate hidden Go boundary verification branches
-	grid = grid[:paddedX*f.Bounds.PaddedCellCountY]
+	grid = grid[:paddedX*bounds.PaddedCellCountY]
 
 	// 1. Handle Top and Bottom Horizontal Boundaries (Blazing fast sequential memory)
 	// Top row: y = 0, Bottom row: y = cellY + 1
@@ -415,21 +420,21 @@ func (f *FluidEffect) setBoundariesInt16(b boundaryType, grid []int16) {
 	grid[botRightIdx] = (grid[botRightIdx-1] + grid[botRightIdx-paddedX]) >> 1
 }
 
-func (v *Velocity) diffuse(f *FluidEffect, b boundaryType, diffRate uint8) {
-	paddedX := f.Bounds.PaddedCellCountX
-	cellX := f.Bounds.CellCountX
-	cellY := f.Bounds.CellCountY
-	limit := paddedX * f.Bounds.PaddedCellCountY
+func diffuseVelocity(bounds FluidBounds, b boundaryType, vel *Velocity, relaxationIterations int32, diffRate uint8) {
+	paddedX := bounds.PaddedCellCountX
+	cellX := bounds.CellCountX
+	cellY := bounds.CellCountY
+	limit := paddedX * bounds.PaddedCellCountY
 
 	// Set up zero-overhead local working pointers for our iterations
-	src := v.Previous[:limit]
-	dst := v.Current[:limit]
+	src := vel.Previous[:limit]
+	dst := vel.Current[:limit]
 
 	a := int32(diffRate)
 	denom := 1 + 4*a
 	recipScale := (1 << 16) / denom
 
-	for iter := int32(0); iter < f.RelaxationIterations; iter++ {
+	for iter := int32(0); iter < relaxationIterations; iter++ {
 		yIdx := paddedX
 		for y := int32(1); y <= cellY; y++ {
 			xIdx := yIdx + 1
@@ -443,7 +448,7 @@ func (v *Velocity) diffuse(f *FluidEffect, b boundaryType, diffRate uint8) {
 			}
 			yIdx += paddedX
 		}
-		f.setBoundariesInt16(b, dst)
+		setVelocityBoundaries(bounds, b, dst)
 
 		// Ping-pong local array scopes for next iteration step
 		src, dst = dst, src
@@ -453,8 +458,8 @@ func (v *Velocity) diffuse(f *FluidEffect, b boundaryType, diffRate uint8) {
 	// 'src' ALWAYS holds the final, most recently stabilized physics state.
 	// 'dst' holds the leftover un-updated scratch data.
 	// Assigning them directly updates the Velocity struct fields with zero copies!
-	v.Current = src
-	v.Previous = dst
+	vel.Current = src
+	vel.Previous = dst
 }
 
 func fadeDensity(bounds FluidBounds, density *Density, fadeRate uint8) {
@@ -525,7 +530,7 @@ func diffuseDensity(bounds FluidBounds, density *Density, relaxationIterations i
 			}
 			yIdx += paddedX
 		}
-		setBoundariesUint8(bounds, dst)
+		setDensityBoundaries(bounds, dst)
 
 		src, dst = dst, src
 	}
@@ -535,44 +540,29 @@ func diffuseDensity(bounds FluidBounds, density *Density, relaxationIterations i
 	density.Previous = dst
 }
 
-type swapType int
-
-const (
-	swapVelocities swapType = iota
-	swapDensities
-)
-
-func (f *FluidEffect) swapState(s swapType) {
-	switch s {
-	case swapVelocities:
-		f.VelocityX.swap()
-		f.VelocityY.swap()
-	case swapDensities:
-		f.Density.swap()
-	}
-}
-
 func (f *FluidEffect) simulateVelocity() {
 	// 1. Swap velocity buffers to make current data the "previous" state
-	f.swapState(swapVelocities)
+	f.VelocityX.swap()
+	f.VelocityY.swap()
 
 	// 2. Diffuse the velocities using Jacobi relaxation (4 iterations)
 	// Passing the type-safe BoundaryReflect configurations to handle boundary physics
-	// f.diffuseVelocity(boundaryReflectX, f.CurrentVelocity.XVel, f.PreviousVelocity.XVel, f.Viscosity)
-	// f.diffuseVelocity(boundaryReflectY, f.CurrentVelocity.YVel, f.PreviousVelocity.YVel, f.Viscosity)
+	diffuseVelocity(f.Bounds, boundaryReflectX, &f.VelocityX, f.RelaxationIterations, f.Viscosity)
+	diffuseVelocity(f.Bounds, boundaryReflectY, &f.VelocityY, f.RelaxationIterations, f.Viscosity)
 
 	// 3. Project to fix any numerical compression leaks from the diffusion pass
-	f.projectFixedPoint(f.VelocityX.Current, f.VelocityY.Current, f.PScratch, f.DivScratch)
+	projectVelocity(f.Bounds, f.VelocityX.Current, f.VelocityY.Current, f.PScratch, f.DivScratch, f.RelaxationIterations)
 
 	// 4. Swap states again to prepare for the advection step
-	f.swapState(swapVelocities)
+	f.VelocityX.swap()
+	f.VelocityY.swap()
 
 	// 5. Advect velocities backward through their own moving velocity field
-	f.advectVelocityFixedPoint(boundaryReflectX, f.VelocityX.Current, f.VelocityX.Previous, f.VelocityX.Previous, f.VelocityY.Previous)
-	f.advectVelocityFixedPoint(boundaryReflectY, f.VelocityY.Current, f.VelocityY.Previous, f.VelocityX.Previous, f.VelocityY.Previous)
+	advectVelocity(f.Bounds, boundaryReflectX, f.VelocityX.Current, f.VelocityX.Previous, f.VelocityX.Previous, f.VelocityY.Previous)
+	advectVelocity(f.Bounds, boundaryReflectY, f.VelocityY.Current, f.VelocityY.Previous, f.VelocityX.Previous, f.VelocityY.Previous)
 
 	// 6. Final projection sweep ensures the output remains completely stable and swirling
-	f.projectFixedPoint(f.VelocityX.Current, f.VelocityY.Current, f.PScratch, f.DivScratch)
+	projectVelocity(f.Bounds, f.VelocityX.Current, f.VelocityY.Current, f.PScratch, f.DivScratch, f.RelaxationIterations)
 }
 
 func (f *FluidEffect) simulateDensity() {
@@ -580,16 +570,16 @@ func (f *FluidEffect) simulateDensity() {
 	fadeDensity(f.Bounds, &f.Density, f.FadeRate)
 
 	// 2. Swap density buffers to prepare for diffusion
-	f.swapState(swapDensities)
+	f.Density.swap()
 
 	// 3. Diffuse density outwards smoothly across surrounding grid neighbors
 	diffuseDensity(f.Bounds, &f.Density, f.RelaxationIterations, f.DiffusionRate)
 
 	// 4. Swap density buffers once more to prepare for the advection pass
-	f.swapState(swapDensities)
+	f.Density.swap()
 
 	// 5. Advect density backward along the newly updated velocity field vector paths
-	f.advectDensityFixedPoint(f.Density.Current, f.Density.Previous, f.VelocityX.Current, f.VelocityY.Current)
+	advectDensityFixedPoint(f.Bounds, f.Density.Current, f.Density.Previous, f.VelocityX.Current, f.VelocityY.Current)
 }
 
 func (f *FluidEffect) ProcessFrame(dt float32, fb *fx_common.FrameBuffer) {
