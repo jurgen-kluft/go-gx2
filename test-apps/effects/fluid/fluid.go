@@ -15,17 +15,19 @@ const (
 )
 
 type VelocityData struct {
-	XVel []float32
+	XVel []float32 // XVelocities, range
 	YVel []float32
 }
 
 type DensityData struct {
-	Density []float32
+	Density []float32 // Density, range 0.0 - 1.0
 }
 
 type FluidEffect struct {
-	Size             int
-	PaddedSize       int
+	CellCountX       int32
+	CellCountY       int32
+	PaddedCellCountX int32
+	PaddedCellCountY int32
 	CurrentVelocity  *VelocityData
 	PreviousVelocity *VelocityData
 	CurrentDensity   *DensityData
@@ -36,10 +38,11 @@ type FluidEffect struct {
 	FadeRate         float32
 }
 
-func NewFluidEffect(cellSize int) *FluidEffect {
+func NewFluidEffect(cellCountX, cellCountY int32) *FluidEffect {
 	// allocate additional space for boundary conditions
-	paddedSize := cellSize + 2
-	makeArray2d := func() []float32 { return make([]float32, paddedSize*paddedSize) }
+	paddedCellCountX := cellCountX + 2
+	paddedCellCountY := cellCountY + 2
+	makeArray2d := func() []float32 { return make([]float32, paddedCellCountX*paddedCellCountY) }
 
 	currentVelocity := &VelocityData{
 		XVel: makeArray2d(),
@@ -64,8 +67,10 @@ func NewFluidEffect(cellSize int) *FluidEffect {
 	fadeRate := float32(0.0025)
 
 	fluid := &FluidEffect{
-		Size:             cellSize,
-		PaddedSize:       paddedSize,
+		CellCountX:       cellCountX,
+		CellCountY:       cellCountY,
+		PaddedCellCountX: paddedCellCountX,
+		PaddedCellCountY: paddedCellCountY,
 		CurrentVelocity:  currentVelocity,
 		PreviousVelocity: previousVelocity,
 		CurrentDensity:   currentDensity,
@@ -100,13 +105,13 @@ func (f *FluidEffect) Simulate(dt float32) {
 	f.simulateDensity(dt)
 }
 
-func (f *FluidEffect) AddDensity(x, y int, val float32) {
-	f.CurrentDensity.Density[x+(y*f.PaddedSize)] = val
+func (f *FluidEffect) AddDensity(x, y int32, val float32) {
+	f.CurrentDensity.Density[x+(y*f.PaddedCellCountX)] = val
 }
 
-func (f *FluidEffect) AddVelocity(x, y int, xval, yval float32) {
-	f.CurrentVelocity.XVel[x+(y*f.PaddedSize)] = xval
-	f.CurrentVelocity.YVel[x+(y*f.PaddedSize)] = yval
+func (f *FluidEffect) AddVelocity(x, y int32, xval, yval float32) {
+	f.CurrentVelocity.XVel[x+(y*f.PaddedCellCountX)] = xval
+	f.CurrentVelocity.YVel[x+(y*f.PaddedCellCountX)] = yval
 }
 
 func (f *FluidEffect) swapState(s swapStateAction) {
@@ -142,13 +147,6 @@ func (f *FluidEffect) simulateDensity(dt float32) {
 	f.advect(copyBoundary, dt, f.CurrentDensity.Density, f.PreviousDensity.Density, f.CurrentVelocity.XVel, f.CurrentVelocity.YVel)
 }
 
-func fabs(x float32) float32 {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
 func (f *FluidEffect) fade(dt float32, grid []float32, fadeRate float32) {
 	for i := range grid {
 		value := grid[i] - dt*fadeRate
@@ -156,24 +154,16 @@ func (f *FluidEffect) fade(dt float32, grid []float32, fadeRate float32) {
 	}
 }
 
-func clampf(value, min, max float32) float32 {
-	if value < min {
-		return min
-	} else if value > max {
-		return max
-	}
-	return value
-}
-
 func (f *FluidEffect) advect(b boundaryAction, dt float32, grid []float32, gridPrev []float32, xVelocities, yVelocities []float32) {
 
 	half := float32(0.5)
-	sizePlusHalf := float32(f.Size) + half
+	cellCountXPlusHalf := float32(f.CellCountX) + half
+	cellCountYPlusHalf := float32(f.CellCountY) + half
 
-	yIdx := 1 * f.PaddedSize
-	for y := 1; y <= f.Size; y++ {
+	yIdx := 1 * f.PaddedCellCountX
+	for y := int32(1); y <= f.CellCountY; y++ {
 		xIdx := yIdx
-		for x := 1; x <= f.Size; x++ {
+		for x := int32(1); x <= f.CellCountX; x++ {
 			xv := xVelocities[xIdx]
 			yv := yVelocities[xIdx]
 
@@ -184,15 +174,15 @@ func (f *FluidEffect) advect(b boundaryAction, dt float32, grid []float32, gridP
 			px := float32(x) - xv*dt
 			py := float32(y) - yv*dt
 
-			px = clampf(px, half, sizePlusHalf)
-			py = clampf(py, half, sizePlusHalf)
+			px = clampf(px, half, cellCountXPlusHalf)
+			py = clampf(py, half, cellCountYPlusHalf)
 
 			val := f.bilinearInterpolate(px, py, gridPrev)
 
 			grid[xIdx] = val
 			xIdx++
 		}
-		yIdx += f.PaddedSize
+		yIdx += f.PaddedCellCountX
 	}
 	f.setBoundaries(b, grid)
 }
@@ -202,24 +192,24 @@ func (f *FluidEffect) diffuse(b boundaryAction, dt float32, grid []float32, grid
 	// high density cells diffuse to low density cells
 
 	// diffusion delta
-	diffusionFactor := dt * diffusionRate * float32(f.Size) * float32(f.Size)
+	diffusionFactor := dt * diffusionRate * float32(f.CellCountX) * float32(f.CellCountX)
 
 	const numNeighbors float32 = 4.0
 
 	// Gauss-Seidel Relaxation
 	for range f.RelaxationSteps {
-		ys := 1 * f.PaddedSize
-		ye := ys + f.Size + 1
-		for ys <= ye {
+		ys := 1 * f.PaddedCellCountX
+		ye := ys + f.CellCountY
+		for ys < ye {
 			xs := ys + 1
-			xe := xs + f.Size
+			xe := xs + f.CellCountX
 			for xs < xe {
 				self := gridPrev[xs]
 
 				right := grid[xs+1]
 				left := grid[xs-1]
-				bottom := grid[xs+f.PaddedSize]
-				top := grid[xs-f.PaddedSize]
+				bottom := grid[xs+f.PaddedCellCountX]
+				top := grid[xs-f.PaddedCellCountX]
 
 				sumOfNeighborValues := right + left + bottom + top
 				diffusedValue := (self + sumOfNeighborValues*diffusionFactor) / (1 + numNeighbors*diffusionFactor)
@@ -232,18 +222,18 @@ func (f *FluidEffect) diffuse(b boundaryAction, dt float32, grid []float32, grid
 
 func (f *FluidEffect) project(xVelocities, yVelocities, xVelocitiesPrev, yVelocitiesPrev []float32) {
 
-	minHalfDivSize := float32(-0.5) / float32(f.Size)
+	minHalfDivSize := float32(-0.5) / float32(f.CellCountX)
 
-	ys := 1 * f.PaddedSize
-	ye := ys + f.Size
+	ys := 1 * f.PaddedCellCountX
+	ye := ys + f.CellCountY
 	for ys < ye {
 		xs := ys + 1
-		xe := xs + f.Size
+		xe := xs + f.CellCountX
 		for xs < xe {
 			a := xVelocities[xs+1]
 			b := xVelocities[xs-1]
-			c := yVelocities[xs+f.PaddedSize]
-			d := yVelocities[xs-f.PaddedSize]
+			c := yVelocities[xs+f.PaddedCellCountX]
+			d := yVelocities[xs-f.PaddedCellCountX]
 
 			divergence := minHalfDivSize * (a - b + c - d)
 
@@ -251,7 +241,7 @@ func (f *FluidEffect) project(xVelocities, yVelocities, xVelocitiesPrev, yVeloci
 			xVelocitiesPrev[xs] = 0.0
 			xs++
 		}
-		ys += f.PaddedSize
+		ys += f.PaddedCellCountX
 	}
 
 	f.setBoundaries(copyBoundary, yVelocitiesPrev)
@@ -260,44 +250,44 @@ func (f *FluidEffect) project(xVelocities, yVelocities, xVelocitiesPrev, yVeloci
 	invFour := float32(1.0 / 4.0)
 
 	for range f.RelaxationSteps {
-		ys = 1 * f.PaddedSize
-		ye = ys + f.Size + 1
-		for ys <= ye {
+		ys = 1 * f.PaddedCellCountX
+		ye = ys + f.CellCountY
+		for ys < ye {
 			xs := ys + 1
-			xe := xs + f.Size
+			xe := xs + f.CellCountX
 			for xs < xe {
 				va := yVelocitiesPrev[xs]
 				vb := xVelocitiesPrev[xs-1]
 				vc := xVelocitiesPrev[xs+1]
-				vd := xVelocitiesPrev[xs-f.PaddedSize]
-				ve := xVelocitiesPrev[xs+f.PaddedSize]
+				vd := xVelocitiesPrev[xs-f.PaddedCellCountX]
+				ve := xVelocitiesPrev[xs+f.PaddedCellCountX]
 				vf := (va + vb + vc + vd + ve) * invFour
 				xVelocitiesPrev[xs] = vf
 				xs++
 			}
-			ys += f.PaddedSize
+			ys += f.PaddedCellCountX
 		}
 		f.setBoundaries(copyBoundary, xVelocitiesPrev)
 	}
 
-	halfSize := float32(0.5) * float32(f.Size)
+	halfSize := float32(0.5) * float32(f.CellCountX)
 
-	ys = 1 * f.PaddedSize
-	ye = ys + f.Size + 1
-	for ys <= ye {
+	ys = 1 * f.PaddedCellCountX
+	ye = ys + f.CellCountY
+	for ys < ye {
 		xs := ys + 1
-		xe := xs + f.Size
+		xe := xs + f.CellCountX
 		for xs < xe {
 			a := xVelocitiesPrev[xs+1]
 			b := xVelocitiesPrev[xs-1]
-			c := xVelocitiesPrev[xs+f.PaddedSize]
-			d := xVelocitiesPrev[xs-f.PaddedSize]
+			c := xVelocitiesPrev[xs+f.PaddedCellCountX]
+			d := xVelocitiesPrev[xs-f.PaddedCellCountX]
 
 			xVelocities[xs] -= halfSize * (a - b)
 			yVelocities[xs] -= halfSize * (c - d)
 			xs++
 		}
-		ys += f.PaddedSize
+		ys += f.PaddedCellCountX
 	}
 	f.setBoundaries(reflectBoundary, yVelocities)
 	f.setBoundaries(reflectBoundary, xVelocities)
@@ -309,73 +299,73 @@ func (f *FluidEffect) setBoundaries(b boundaryAction, grid []float32) {
 
 	if b == reflectBoundary {
 		// Left boundary
-		leftColumnIndex := f.PaddedSize
-		for i := 1; i <= f.Size; i++ {
+		leftColumnIndex := f.PaddedCellCountX
+		for i := int32(1); i <= f.CellCountY; i++ {
 			grid[leftColumnIndex] = -grid[leftColumnIndex+1]
-			leftColumnIndex += f.PaddedSize
+			leftColumnIndex += f.PaddedCellCountX
 		}
 
 		// Right boundary
-		rightColumnIndex := f.PaddedSize + f.Size + 1
-		for i := 1; i <= f.Size; i++ {
+		rightColumnIndex := f.PaddedCellCountX + f.CellCountX + 1
+		for i := int32(1); i <= f.CellCountY; i++ {
 			grid[rightColumnIndex] = -grid[rightColumnIndex-1]
-			rightColumnIndex += f.PaddedSize
+			rightColumnIndex += f.PaddedCellCountX
 		}
 
 		// Top boundary
-		topRow := grid[0:f.PaddedSize]
-		topRowOneDown := grid[f.PaddedSize : 2*f.PaddedSize]
-		for i := 1; i <= f.Size; i++ {
+		topRow := grid[0:f.PaddedCellCountX]
+		topRowOneDown := grid[f.PaddedCellCountX : 2*f.PaddedCellCountX]
+		for i := int32(1); i <= f.CellCountX; i++ {
 			topRow[i] = -topRowOneDown[i]
 		}
 
 		// Bottom boundary
-		bottomRow := grid[(f.Size+1)*f.PaddedSize : (f.Size+2)*f.PaddedSize]
-		bottomRowOneUp := grid[f.Size*f.PaddedSize : (f.Size+1)*f.PaddedSize]
-		for i := 1; i <= f.Size; i++ {
+		bottomRow := grid[(f.CellCountX+1)*f.PaddedCellCountX : (f.CellCountX+2)*f.PaddedCellCountX]
+		bottomRowOneUp := grid[f.CellCountX*f.PaddedCellCountX : (f.CellCountX+1)*f.PaddedCellCountX]
+		for i := int32(1); i <= f.CellCountX; i++ {
 			bottomRow[i] = -bottomRowOneUp[i]
 		}
 	} else {
 		// Left boundary
-		leftColumnIndex := f.PaddedSize
-		for i := 1; i <= f.Size; i++ {
+		leftColumnIndex := f.PaddedCellCountX
+		for i := int32(1); i <= f.CellCountY; i++ {
 			grid[leftColumnIndex] = grid[leftColumnIndex+1]
-			leftColumnIndex += f.PaddedSize
+			leftColumnIndex += f.PaddedCellCountX
 		}
 
 		// Right boundary
-		rightColumnIndex := f.PaddedSize + f.Size + 1
-		for i := 1; i <= f.Size; i++ {
+		rightColumnIndex := f.PaddedCellCountX + f.CellCountX + 1
+		for i := int32(1); i <= f.CellCountY; i++ {
 			grid[rightColumnIndex] = grid[rightColumnIndex-1]
-			rightColumnIndex += f.PaddedSize
+			rightColumnIndex += f.PaddedCellCountX
 		}
 
 		// Top boundary
-		topRow := grid[0:f.PaddedSize]
-		topRowOneDown := grid[f.PaddedSize : 2*f.PaddedSize]
-		for i := 1; i <= f.Size; i++ {
+		topRow := grid[0:f.PaddedCellCountX]
+		topRowOneDown := grid[f.PaddedCellCountX : 2*f.PaddedCellCountX]
+		for i := int32(1); i <= f.CellCountX; i++ {
 			topRow[i] = topRowOneDown[i]
 		}
 
 		// Bottom boundary
-		bottomRow := grid[(f.Size+1)*f.PaddedSize : (f.Size+2)*f.PaddedSize]
-		bottomRowOneUp := grid[f.Size*f.PaddedSize : (f.Size+1)*f.PaddedSize]
-		for i := 1; i <= f.Size; i++ {
+		bottomRow := grid[(f.CellCountX+1)*f.PaddedCellCountX : (f.CellCountX+2)*f.PaddedCellCountX]
+		bottomRowOneUp := grid[f.CellCountX*f.PaddedCellCountX : (f.CellCountX+1)*f.PaddedCellCountX]
+		for i := int32(1); i <= f.CellCountX; i++ {
 			bottomRow[i] = bottomRowOneUp[i]
 		}
 	}
 
 	// Corners
-	grid[0] = 0.5 * (grid[1] + grid[f.PaddedSize])                                                                            // Top-left corner
-	grid[f.PaddedSize-1] = 0.5 * (grid[f.PaddedSize-2] + grid[2*f.PaddedSize-1])                                              // Top-right corner
-	grid[(f.Size+1)*f.PaddedSize] = 0.5 * (grid[f.Size*f.PaddedSize] + grid[(f.Size+1)*f.PaddedSize+1])                       // Bottom-left corner
-	grid[(f.PaddedSize*f.PaddedSize)-1] = 0.5 * (grid[(f.PaddedSize*f.PaddedSize)-2] + grid[(f.PaddedSize-1)*f.PaddedSize-1]) // Bottom-right corner
+	grid[0] = 0.5 * (grid[1] + grid[f.PaddedCellCountX])                                                                                                          // Top-left corner
+	grid[f.PaddedCellCountX-1] = 0.5 * (grid[f.PaddedCellCountX-2] + grid[2*f.PaddedCellCountX-1])                                                                // Top-right corner
+	grid[(f.CellCountY+1)*f.PaddedCellCountX] = 0.5 * (grid[f.CellCountY*f.PaddedCellCountX] + grid[(f.CellCountY+1)*f.PaddedCellCountX+1])                       // Bottom-left corner
+	grid[(f.PaddedCellCountX*f.PaddedCellCountY)-1] = 0.5 * (grid[(f.PaddedCellCountX*f.PaddedCellCountY)-2] + grid[(f.PaddedCellCountY-1)*f.PaddedCellCountX-1]) // Bottom-right corner
 }
 
 func (f *FluidEffect) bilinearInterpolate(x, y float32, grid []float32) float32 {
 	// truncate x and y and get the indexes for the 4 adjacent cells at this position
-	x0 := int(x)
-	y0 := int(y)
+	x0 := int32(x)
+	y0 := int32(y)
 
 	// calculate the floating point distance between the cell center and interpolation position
 	// resulting in a value in the range 0.0 - 1.0, which represents the x and y contributions
@@ -383,12 +373,12 @@ func (f *FluidEffect) bilinearInterpolate(x, y float32, grid []float32) float32 
 	dy := y - float32(y0)
 
 	// get the values at the 4 adjacent cells that will be interpolated
-	xx := x0 + y0*f.PaddedSize
+	xx := x0 + y0*f.PaddedCellCountX
 	v00 := grid[xx]
 	xx++
 	v10 := grid[xx]
 
-	xx += f.PaddedSize // move to the next row
+	xx += f.PaddedCellCountX // move to the next row
 	v11 := grid[xx]
 	xx--
 	v01 := grid[xx]
