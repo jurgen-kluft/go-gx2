@@ -1,79 +1,34 @@
 package fx_rotozoom
 
-import fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
+import (
+	"math"
 
-// static const uint8_t PIXEL_SIZE = 2;
-// static const uint8_t SPEED = 2;
+	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
+)
 
-// static uint16_t angle;
-// // static float sinlut[360];
-// // static float coslut[360];
-
-// void
-// rotozoom_init()
-// {
-//     /* Generate look up tables. */
-//     // for (uint16_t i = 0; i < 360; i++) {
-//     //     sinlut[i] = sin(i * M_PI / 180);
-//     //     coslut[i] = cos(i * M_PI / 180);
-//     // }
-// }
-
-// void
-// rotozoom_render(hagl_backend_t const *display)
-// {
-//     float s, c, z;
-
-//     s = sin(angle * M_PI / 180);
-//     c = cos(angle * M_PI / 180);
-//     // s = sinlut[angle];
-//     // c = coslut[angle];
-//     z = s * 1.2;
-
-//     for (uint16_t x = 0; x < DISPLAY_WIDTH; x = x + PIXEL_SIZE) {
-//         for (uint16_t y = 0; y < DISPLAY_HEIGHT; y = y + PIXEL_SIZE) {
-
-//             /* Get a rotated pixel from the head image. */
-//             int16_t u = (int16_t)((x * c - y * s) * z) % HEAD_WIDTH;
-//             int16_t v = (int16_t)((x * s + y * c) * z) % HEAD_HEIGHT;
-
-//             u = abs(u);
-//             if (v < 0) {
-//                 v += HEAD_HEIGHT;
-//             }
-//             hagl_color_t *color = (hagl_color_t *) (head + HEAD_WIDTH * sizeof(hagl_color_t) * v + sizeof(hagl_color_t) * u);
-
-//             if (1 == PIXEL_SIZE) {
-//                 hagl_put_pixel(display, x, y, *color);
-//             } else {
-//                 hagl_fill_rectangle(display, x, y, x + PIXEL_SIZE - 1, y + PIXEL_SIZE - 1, *color);
-//             }
-//             // hagl_put_pixel(x, y, *color);
-//         }
-//     }
-// }
-
-// void
-// rotozoom_animate()
-// {
-//     angle = (angle + SPEED) % 360;
-// }
+// TODO: Get an image that is a power-of-two in both dimensions, so we can use bitwise AND instead of modulo for wrapping.
 
 type Effect struct {
-	Angle int32
-	Speed int32
+	AccumulatedTime float32
+	StepTime        float32
+
+	Angle     int32
+	Speed     int32
+	PixelSize int32
 
 	ImageData   []uint8
 	ImageWidth  int32
 	ImageHeight int32
 }
 
-func NewEffect(speed int32) *Effect {
+func NewEffect(speed int32, pixelSize int32) *Effect {
 	f := &Effect{
-		Angle: 0,
-		Speed: speed,
+		AccumulatedTime: 0,
+		StepTime:        1.0 / 60.0,
+		Angle:           0,
+		Speed:           speed,
+		PixelSize:       pixelSize,
 	}
-
 	f.ImageData = IMAGE_DATA
 	f.ImageWidth = IMAGE_WIDTH
 	f.ImageHeight = IMAGE_HEIGHT
@@ -81,12 +36,50 @@ func NewEffect(speed int32) *Effect {
 	return f
 }
 
-func (e *Effect) Animate() {
-	e.Angle = (e.Angle + e.Speed)
-	if e.Angle >= 360 {
-		e.Angle -= 360
+func (e *Effect) animate(dt float32) {
+	e.AccumulatedTime += dt
+
+	for e.AccumulatedTime >= e.StepTime {
+		e.Angle = (e.Angle + e.Speed)
+		if e.Angle >= 360 {
+			e.Angle -= 360
+		}
+		e.AccumulatedTime -= e.StepTime
 	}
 }
 
-func (e *Effect) Render(fb *fx_common.FrameBuffer) {
+func (e *Effect) render(fb *fx_common.FrameBuffer) {
+	s := float32(math.Sin(float64(e.Angle) * math.Pi / 180))
+	c := float32(math.Cos(float64(e.Angle) * math.Pi / 180))
+	z := s * 1.2
+
+	for x := int32(0); x < fb.Width; x += e.PixelSize {
+		for y := int32(0); y < fb.Height; y += e.PixelSize {
+
+			// Get a rotated pixel from the image
+			u := int32((float32(x)*c-float32(y)*s)*z) % e.ImageWidth
+			v := int32((float32(x)*s+float32(y)*c)*z) % e.ImageHeight
+
+			if u < 0 {
+				u += e.ImageWidth
+			}
+			if v < 0 {
+				v += e.ImageHeight
+			}
+
+			imgByteIndex := v*e.ImageWidth*2 + (u * 2)
+			color := uint16(e.ImageData[imgByteIndex]) | (uint16(e.ImageData[imgByteIndex+1]) << 8)
+
+			for px := int32(0); px < e.PixelSize; px++ {
+				for py := int32(0); py < e.PixelSize; py++ {
+					fb.Pixels[(y+py)*fb.Width+(x+px)] = color
+				}
+			}
+		}
+	}
+}
+
+func (e *Effect) ProcessFrame(dt float32, fb *fx_common.FrameBuffer) {
+	e.animate(dt)
+	e.render(fb)
 }
