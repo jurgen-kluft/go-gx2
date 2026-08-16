@@ -2,7 +2,7 @@
 
 ## 2D Coordinate & Geometric Mapping
 
-- **Roto-Zoomer:** Infinite background grid texture spinning and scaling smoothly using fast affine matrix vector stepping.
+- ✅ **Roto-Zoomer:** Infinite background grid texture spinning and scaling smoothly using fast affine matrix vector stepping.
 - **Tunnel / Wormhole:** Simulating travel down a 3D cylindrical pipe by converting screen coordinates into polar distance maps.
 - **Vector 3D Wireframe:** Rotating wire models of cubes or complex objects projected onto a screen with simple perspective division.
 - **Screen Ripple / Wave:** Modifying texture sample indices with time-shifted sine lookup rows to mimic moving water surfaces.
@@ -12,7 +12,7 @@
 
 - ✅ **Starfield Simulation:** Classic deep space movement utilizing independent particle points accelerating outward down the Z-axis.
 - ✅ **Conway’s Game of Life:** Cellular automata grid computing life/death matrices to form complex organic breeding patterns.
-- **Plasma Generator:** Layering overlapping multi-axis trigonometric sine and cosine waves to build shifting psychedelic designs.
+- ✅ **Plasma Generator:** Layering overlapping multi-axis trigonometric sine and cosine waves to build shifting psychedelic designs.
 - **Meta-Balls:** Summing field intensity maps surrounding multiple coordinate centers to render merging liquid-mercury droplets.
 - ✅ **Flicker Fire Effect:** Running localized bottom-up attenuation filters over random heat noise arrays to generate distinct flames.
 
