@@ -62,7 +62,7 @@ func (rz *RotoZoomEffect) GetTexture() *Texture {
 // Render steps through the framebuffer in screen-space while tracking
 // and accumulating pure U and V coordinates across texture space.
 func (rz *RotoZoomEffect) Render(fb *fx_common.FrameBuffer, plasmaPhaseY int32) {
-	pSize := int32(2) // 2x2 macro block screen rendering
+	pSize := int32(1) // 2x2 macro block screen rendering
 
 	// =========================================================================
 	// INITIALIZATION STAGE: PURE FLOAT32 MATH

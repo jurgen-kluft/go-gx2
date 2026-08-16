@@ -68,6 +68,21 @@ func NewEffect() *Effect {
 		e.palette[i] = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
 	}
 
+	// 2.a. Create a blue and green ice white palette
+	for i := 0; i < 256; i++ {
+		rad := (float64(i) * 2.0 * math.Pi) / 256.0
+		r := uint16((math.Sin(rad) * 127) + 128)
+		g := uint16((math.Sin(rad+(2.0*math.Pi/3.0)) * 127) + 128)
+		b := uint16((math.Sin(rad+(4.0*math.Pi/3.0)) * 127) + 128)
+
+		// Blend towards white for a cooler palette
+		r = (r + 255) / 2
+		g = (g + 255) / 2
+		b = (b + 255) / 2
+
+		e.palette[i] = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+	}
+
 	// 3. Precalculate Symmetrical Quadrant Distance Table with Normalization
 	halfW := (e.width / 2) / pSize
 	halfH := (e.height / 2) / pSize

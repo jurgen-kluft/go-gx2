@@ -4,7 +4,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 	_ "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
 	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
-	fx_plasma "github.com/jurgen-kluft/go-gx2/test-apps/effects/plasma"
+	fx_rotozoom "github.com/jurgen-kluft/go-gx2/test-apps/effects/rotozoom"
 )
 
 func rgb565ToColor(c uint16) rl.Color {
@@ -40,7 +40,8 @@ func main() {
 	//effect := NewMetaball2Effect()
 	//effect := NewStarFieldEffect(2000) // Create a star field effect with 1000 stars
 	//effect := fx_conway.NewEffect(int32(screenWidth), int32(screenHeight)) // Create a Conway's Game of Life effect
-	effect := fx_plasma.NewEffect() // Create a plasma effect
+	//effect := fx_plasma.NewEffect() // Create a plasma effect
+	effect := fx_rotozoom.NewEffect(30.0, 2) // Create a rotozoom effect
 
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()

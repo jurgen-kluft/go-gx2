@@ -9,27 +9,22 @@ import (
 // TODO: Get an image that is a power-of-two in both dimensions, so we can use bitwise AND instead of modulo for wrapping.
 
 type Effect struct {
-	AccumulatedTime float32
-	StepTime        float32
-
-	Angle     int32
-	Speed     int32
-	PixelSize int32
+	RotationAngle float32
+	RotationSpeed float32
+	PixelSize     int32
 
 	ImageData   []uint8
 	ImageWidth  int32
 	ImageHeight int32
 }
 
-func NewEffect(speed int32, pixelSize int32) *Effect {
+func NewEffect(speed float32, pixelSize int32) *Effect {
 	f := &Effect{
-		AccumulatedTime: 0,
-		StepTime:        1.0 / 60.0,
-		Angle:           0,
-		Speed:           speed,
-		PixelSize:       pixelSize,
+		RotationAngle: 0,
+		RotationSpeed: speed,
+		PixelSize:     pixelSize,
 	}
-	f.ImageData = IMAGE_DATA
+	f.ImageData = IMAGE_DATA[4:]
 	f.ImageWidth = IMAGE_WIDTH
 	f.ImageHeight = IMAGE_HEIGHT
 
@@ -37,21 +32,16 @@ func NewEffect(speed int32, pixelSize int32) *Effect {
 }
 
 func (e *Effect) animate(dt float32) {
-	e.AccumulatedTime += dt
-
-	for e.AccumulatedTime >= e.StepTime {
-		e.Angle = (e.Angle + e.Speed)
-		if e.Angle >= 360 {
-			e.Angle -= 360
-		}
-		e.AccumulatedTime -= e.StepTime
+	e.RotationAngle = (e.RotationAngle + e.RotationSpeed*dt)
+	if e.RotationAngle >= 360 {
+		e.RotationAngle -= 360
 	}
 }
 
 func (e *Effect) render(fb *fx_common.FrameBuffer) {
-	s := float32(math.Sin(float64(e.Angle) * math.Pi / 180))
-	c := float32(math.Cos(float64(e.Angle) * math.Pi / 180))
-	z := s * 1.2
+	s := float32(math.Sin(float64(e.RotationAngle) * math.Pi / 180))
+	c := float32(math.Cos(float64(e.RotationAngle) * math.Pi / 180))
+	z := s * 1.1
 
 	for x := int32(0); x < fb.Width; x += e.PixelSize {
 		for y := int32(0); y < fb.Height; y += e.PixelSize {
@@ -68,7 +58,7 @@ func (e *Effect) render(fb *fx_common.FrameBuffer) {
 			}
 
 			imgByteIndex := v*e.ImageWidth*2 + (u * 2)
-			color := uint16(e.ImageData[imgByteIndex]) | (uint16(e.ImageData[imgByteIndex+1]) << 8)
+			color := (uint16(e.ImageData[imgByteIndex]) << 8) | (uint16(e.ImageData[imgByteIndex+1]) << 0)
 
 			for px := int32(0); px < e.PixelSize; px++ {
 				for py := int32(0); py < e.PixelSize; py++ {
