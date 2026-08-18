@@ -43,12 +43,30 @@ func (e *Effect) render(fb *fx_common.FrameBuffer) {
 	c := float32(math.Cos(float64(e.RotationAngle) * math.Pi / 180))
 	z := s * 1.1
 
+	// keep the point that we rotate around in the center of the screen
+	cx := float32(fb.Width) / 2
+	cy := float32(fb.Height) / 2
+
+	// what would be the UV starting point when rotating around the center of the screen?
+	centerU := cx*c - cy*s
+	centerV := cx*s + cy*c
+
+	for centerU < 0 {
+		centerU += float32(e.ImageWidth)
+	}
+	for centerV < 0 {
+		centerV += float32(e.ImageHeight)
+	}
+
+	centerU = float32(int32(centerU) % e.ImageWidth)
+	centerV = float32(int32(centerV) % e.ImageHeight)
+
 	for x := int32(0); x < fb.Width; x += e.PixelSize {
 		for y := int32(0); y < fb.Height; y += e.PixelSize {
 
 			// Get a rotated pixel from the image
-			u := int32((float32(x)*c-float32(y)*s)*z) % e.ImageWidth
-			v := int32((float32(x)*s+float32(y)*c)*z) % e.ImageHeight
+			u := (int32(centerU) + int32((float32(x)*c-float32(y)*s)*z)) % e.ImageWidth
+			v := (int32(centerV) + int32((float32(x)*s+float32(y)*c)*z)) % e.ImageHeight
 
 			if u < 0 {
 				u += e.ImageWidth
