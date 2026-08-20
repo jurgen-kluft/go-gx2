@@ -3,7 +3,7 @@ package fx_fastripple
 // 2D Water Ripples
 
 import (
-	"fmt"
+	"math"
 
 	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
 )
@@ -12,8 +12,75 @@ type RandU32 = fx_common.RandU
 type FrameBuffer = fx_common.FrameBuffer
 
 const (
-	DampeningScale = 4096
+	DampeningScale         = 16384 // 2.14 fixed point representation of 1.0
+	PaletteSize            = 256
+	DefaultPaletteExponent = 0.46
+	OrthogonalWeight       = 5
+	DiagonalWeight         = 2
+	StencilDivisor         = 14
 )
+
+type rgb888 struct {
+	r uint8
+	g uint8
+	b uint8
+}
+
+type paletteStop struct {
+	position float64
+	color    rgb888
+}
+
+func interpolateColor(start, end rgb888, factor float64) rgb888 {
+	return rgb888{
+		r: uint8(float64(start.r) + float64(int(end.r)-int(start.r))*factor),
+		g: uint8(float64(start.g) + float64(int(end.g)-int(start.g))*factor),
+		b: uint8(float64(start.b) + float64(int(end.b)-int(start.b))*factor),
+	}
+}
+
+func toRgb565(color rgb888) uint16 {
+	return ((uint16(color.r) >> 3) << 11) | ((uint16(color.g) >> 2) << 5) | (uint16(color.b) >> 3)
+}
+
+func interpolatePalette(stops []paletteStop, position float64) rgb888 {
+	for index := 1; index < len(stops); index++ {
+		if position <= stops[index].position {
+			start := stops[index-1]
+			end := stops[index]
+			factor := (position - start.position) / (end.position - start.position)
+			return interpolateColor(start.color, end.color, factor)
+		}
+	}
+	return stops[len(stops)-1].color
+}
+
+func generatePalette(exponent float64) [PaletteSize]uint16 {
+	const (
+		lowerMiddle = PaletteSize/2 - 1
+		upperMiddle = PaletteSize / 2
+	)
+
+	stops := []paletteStop{
+		{position: -1.0, color: rgb888{8, 8, 8}},
+		{position: -0.4, color: rgb888{20, 20, 20}},
+		{position: 0.0, color: rgb888{20, 20, 110}},
+		{position: 0.4, color: rgb888{220, 220, 220}},
+		{position: 1.0, color: rgb888{0, 25, 255}},
+	}
+	var palette [PaletteSize]uint16
+
+	for index := 0; index <= lowerMiddle; index++ {
+		distance := float64(lowerMiddle-index) / float64(lowerMiddle)
+		palette[index] = toRgb565(interpolatePalette(stops, -math.Pow(distance, exponent)))
+	}
+	for index := upperMiddle; index < PaletteSize; index++ {
+		distance := float64(index-upperMiddle) / float64(PaletteSize-1-upperMiddle)
+		palette[index] = toRgb565(interpolatePalette(stops, math.Pow(distance, exponent)))
+	}
+
+	return palette
+}
 
 type RippleEffect struct {
 	AccumulatedTime float32
@@ -29,7 +96,8 @@ type RippleEffect struct {
 	Current         []int16
 	Previous        []int16
 	DampeningFactor int32
-	Palette         [256]uint16
+	PaletteExponent float64
+	Palette         [PaletteSize]uint16
 }
 
 func NewEffect(width, height, pixelSize int32) *RippleEffect {
@@ -39,69 +107,20 @@ func NewEffect(width, height, pixelSize int32) *RippleEffect {
 		Width:           width,
 		Height:          height,
 		PixelSize:       pixelSize,
-		RainPercentage:  25,         // 25 / 255 = ~10% chance of rain per frame
+		RainPercentage:  15,         // 25 / 255 = ~10% chance of rain per frame
 		RainIntensity:   255,        // Maximum intensity for rain drops
 		RandState:       0xDEADBEEF, // Initialize with a fixed seed for deterministic randomness
 		Current:         make([]int16, width*height),
 		Previous:        make([]int16, width*height),
-		DampeningFactor: 4093, // 0.99 (4.12 fixed point)
+		DampeningFactor: 16250, // Slightly less than 1.0 in 2.14 fixed point
+		PaletteExponent: DefaultPaletteExponent,
 	}
+	effect.Palette = generatePalette(effect.PaletteExponent)
 
 	for i := range effect.Current {
 		effect.Current[i] = 0
 		effect.Previous[i] = 0
 	}
-
-	type rgb888 struct {
-		r uint8
-		g uint8
-		b uint8
-	}
-
-	interpolateColor := func(start, end rgb888, factor float32) rgb888 {
-		rs := float32(start.r)
-		gs := float32(start.g)
-		bs := float32(start.b)
-
-		re := float32(end.r)
-		ge := float32(end.g)
-		be := float32(end.b)
-
-		r := uint8(rs*(1.0-factor) + re*factor)
-		g := uint8(gs*(1.0-factor) + ge*factor)
-		b := uint8(bs*(1.0-factor) + be*factor)
-
-		return rgb888{r, g, b}
-	}
-
-	toRgb565 := func(c rgb888) uint16 {
-		return ((uint16(c.r) >> 3) << 11) | ((uint16(c.g) >> 2) << 5) | (uint16(c.b) >> 3)
-	}
-
-	// Generate a palette, where 127 is close to white (top of the wave), and 0 is
-	// normal blue water. -127 is the bottom of the wave, which is very dark blue.
-	// darkBlue := uint16(0x0024)  // ultra-dark midnight ocean blue
-	// oceanBlue := uint16(0x03B7) // Ocean blue color in RGB565 format
-	// waveTop := uint16(0xF7BE)   // a bright, icy ocean white
-	bottom := rgb888{0, 0, 4}    // Dark blue for the bottom of the wave
-	middle := rgb888{0, 0, 128}  // Ocean blue for the surface
-	top := rgb888{255, 255, 255} // White for the top of the wave
-	for i := 0; i < 256; i++ {
-		if i < 127 {
-			// Interpolate between dark blue and ocean blue for values below 127
-			factor := float32(i) / 127.0
-			effect.Palette[i] = toRgb565(interpolateColor(bottom, middle, factor))
-		} else {
-			// Interpolate between ocean blue and white for values above 127
-			factor := float32(i-127) / 128.0
-			effect.Palette[i] = toRgb565(interpolateColor(middle, top, factor))
-		}
-	}
-
-	// DEBUG, a randomized palette
-	// for i := 0; i < 256; i++ {
-	// 	effect.Palette[i] = uint16(rand.Intn(65536)) // Random color for testing
-	// }
 
 	return effect
 }
@@ -113,6 +132,16 @@ func clampInt32(value int32) int32 {
 		value = -32768
 	}
 	return value
+}
+
+func computeNewValue(orthoSum, diagSum, currentValue int32, dampeningFactor int32) int16 {
+	//scaledSum := orthoSum*OrthogonalWeight + diagSum*DiagonalWeight
+	scaledSum := diagSum
+	//newValue := (scaledSum / StencilDivisor) - currentValue
+	newValue := (scaledSum / 2) - currentValue
+	newValue = (newValue * dampeningFactor) / DampeningScale
+	newValue = clampInt32(newValue)
+	return int16(newValue)
 }
 
 func (r *RippleEffect) update() {
@@ -133,15 +162,7 @@ func (r *RippleEffect) update() {
 			diagSum += int32(r.Previous[idxX+r.Width-1])
 			diagSum += int32(r.Previous[idxX+r.Width+1])
 
-			scaledSum := (orthoSum << 1) + diagSum
-			newValue := (scaledSum / 6) - int32(r.Current[idxX])
-
-			// Apply dampening
-			newValue = (newValue * r.DampeningFactor) / DampeningScale
-
-			newValue = clampInt32(newValue)
-
-			r.Current[idxX] = int16(newValue)
+			r.Current[idxX] = computeNewValue(orthoSum, diagSum, int32(r.Current[idxX]), r.DampeningFactor)
 			idxX++
 		}
 		idxY += r.Width
@@ -161,12 +182,7 @@ func (r *RippleEffect) update() {
 		diagSum += int32(r.Previous[idx+r.Width-1])
 		diagSum += int32(r.Previous[idx+r.Width+1])
 
-		scaledSum := ((orthoSum << 1) + diagSum) << 2
-		newValue := ((scaledSum / 6) >> 2) - int32(r.Current[idx])
-
-		newValue = (newValue * r.DampeningFactor) / DampeningScale
-		newValue = clampInt32(newValue)
-		r.Current[idx] = int16(newValue)
+		r.Current[idx] = computeNewValue(orthoSum, diagSum, int32(r.Current[idx]), r.DampeningFactor)
 	}
 
 	// BOTTOM BORDER (y = Height-1, skipping corners)
@@ -184,12 +200,7 @@ func (r *RippleEffect) update() {
 		diagSum += int32(r.Previous[idx-1])
 		diagSum += int32(r.Previous[idx+1])
 
-		scaledSum := ((orthoSum << 1) + diagSum) << 2
-		newValue := ((scaledSum / 6) >> 2) - int32(r.Current[idx])
-
-		newValue = (newValue * r.DampeningFactor) / DampeningScale
-		newValue = clampInt32(newValue)
-		r.Current[idx] = int16(newValue)
+		r.Current[idx] = computeNewValue(orthoSum, diagSum, int32(r.Current[idx]), r.DampeningFactor)
 	}
 
 	// LEFT BORDER (x = 0, skipping corners)
@@ -206,12 +217,7 @@ func (r *RippleEffect) update() {
 		diagSum += int32(r.Previous[idx+r.Width])
 		diagSum += int32(r.Previous[idx+r.Width+1])
 
-		scaledSum := ((orthoSum << 1) + diagSum) << 2
-		newValue := ((scaledSum / 6) >> 2) - int32(r.Current[idx])
-
-		newValue = (newValue * r.DampeningFactor) / DampeningScale
-		newValue = clampInt32(newValue)
-		r.Current[idx] = int16(newValue)
+		r.Current[idx] = computeNewValue(orthoSum, diagSum, int32(r.Current[idx]), r.DampeningFactor)
 	}
 
 	// RIGHT BORDER (x = Width-1, skipping corners)
@@ -228,19 +234,14 @@ func (r *RippleEffect) update() {
 		diagSum += int32(r.Previous[idx+r.Width-1])
 		diagSum += int32(r.Previous[idx+r.Width])
 
-		scaledSum := ((orthoSum << 1) + diagSum) << 2
-		newValue := ((scaledSum / 6) >> 2) - int32(r.Current[idx])
-
-		newValue = (newValue * r.DampeningFactor) / DampeningScale
-		newValue = clampInt32(newValue)
-		r.Current[idx] = int16(newValue)
+		r.Current[idx] = computeNewValue(orthoSum, diagSum, int32(r.Current[idx]), r.DampeningFactor)
 	}
 
 	// Helper function to isolate the repetitive math for the 4 single corner indices
 	calcCorner := func(idx int32, ortho1, ortho2, diagonal int32) {
 		orthoSum := int32(r.Previous[ortho1])
 		orthoSum += int32(r.Previous[ortho2])
-		orthoSum += int32(r.Previous[ortho2])
+		orthoSum += int32(r.Previous[ortho1])
 		orthoSum += int32(r.Previous[ortho2])
 
 		diagSum := int32(r.Previous[diagonal])
@@ -248,12 +249,7 @@ func (r *RippleEffect) update() {
 		diagSum += int32(r.Previous[diagonal])
 		diagSum += int32(r.Previous[diagonal])
 
-		scaledSum := ((orthoSum << 1) + diagSum) << 2
-		newValue := ((scaledSum / 6) >> 2) - int32(r.Current[idx])
-
-		newValue = (newValue * r.DampeningFactor) / DampeningScale
-		newValue = clampInt32(newValue)
-		r.Current[idx] = int16(newValue)
+		r.Current[idx] = computeNewValue(orthoSum, diagSum, int32(r.Current[idx]), r.DampeningFactor)
 	}
 
 	w := r.Width
@@ -274,6 +270,17 @@ func (r *RippleEffect) update() {
 	r.Current, r.Previous = r.Previous, r.Current
 }
 
+func (r *RippleEffect) paletteIndex(value int32) int32 {
+	if value > DampeningScale {
+		value = DampeningScale
+	} else if value < -DampeningScale {
+		value = -DampeningScale
+	}
+
+	shiftedValue := int64(value + DampeningScale)
+	return int32(shiftedValue * (PaletteSize - 1) / (2 * DampeningScale))
+}
+
 func (r *RippleEffect) draw(fb *FrameBuffer) {
 	// debug, determine the min and max index used for the palette
 	minIdx := int32(65536)
@@ -283,22 +290,14 @@ func (r *RippleEffect) draw(fb *FrameBuffer) {
 		for x := int32(0); x < r.Width; x++ {
 			idx := y*r.Width + x
 
-			// Grid values are normally between 1.0 and -1.0, and we are using fixed point 4.12
-			// So here we
 			value := int32(r.Current[idx])
-			paletteIdx := (value >> 4) + 128 // Convert from 4.12 fixed point to 8-bit index
+			paletteIdx := r.paletteIndex(value)
 
 			if paletteIdx < minIdx {
 				minIdx = paletteIdx
 			}
 			if paletteIdx > maxIdx {
 				maxIdx = paletteIdx
-			}
-
-			if paletteIdx < 0 {
-				paletteIdx = 0
-			} else if paletteIdx > 255 {
-				paletteIdx = 255
 			}
 
 			color := r.Palette[paletteIdx]
@@ -313,12 +312,20 @@ func (r *RippleEffect) draw(fb *FrameBuffer) {
 			}
 		}
 	}
-	fmt.Printf("Min palette index: %d, Max palette index: %d\n", minIdx, maxIdx)
+	//fmt.Printf("Min palette index: %d, Max palette index: %d\n", minIdx, maxIdx)
 }
 
 func (r *RippleEffect) SetRain(percentage uint8, intensity uint8) {
 	r.RainPercentage = percentage
 	r.RainIntensity = intensity
+}
+
+func (r *RippleEffect) SetPaletteExponent(exponent float64) {
+	if exponent <= 0 || math.IsNaN(exponent) || math.IsInf(exponent, 0) {
+		panic("palette exponent must be finite and greater than zero")
+	}
+	r.PaletteExponent = exponent
+	r.Palette = generatePalette(exponent)
 }
 
 func (r *RippleEffect) ProcessFrame(dt float32, fb *FrameBuffer) {
@@ -339,7 +346,7 @@ func (r *RippleEffect) ProcessFrame(dt float32, fb *FrameBuffer) {
 		intensity := int16((0.6*float32(DampeningScale) + 0.4*DampeningScale*(float32(r.RainIntensity)/255.0)*float32(rnd.PseudoRand()&0xFF)/255.0))
 		r.Previous[idx] = intensity
 
-		fmt.Printf("Adding rain drop at (%d, %d) with intensity %d\n", x, y, intensity)
+		//fmt.Printf("Adding rain drop at (%d, %d) with intensity %d\n", x, y, intensity)
 	}
 
 	r.update()
