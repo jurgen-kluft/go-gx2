@@ -1,10 +1,31 @@
 package fx_rotozoom
 
-const IMAGE_WIDTH = 82
-const IMAGE_HEIGHT = 64
+type ImageRgb565 struct {
+	Width  int32
+	Height int32
+	Data   []uint16
+}
+
+func GetImage() *ImageRgb565 {
+	img := &ImageRgb565{
+		Width:  82,
+		Height: 64,
+		Data:   make([]uint16, 82*64),
+	}
+
+	for i := 4; i < len(IMAGE_DATA); i += 2 {
+		// Combine two bytes into a single uint16 value
+		pixel := uint16(IMAGE_DATA[i])<<8 | uint16(IMAGE_DATA[i+1])
+		img.Data[(i-4)/2] = pixel
+	}
+
+	return img
+}
 
 // 82 * 64 = 5248 * 2 = 10496
 // 12 * 875 = 10500
+const IMAGE_WIDTH = 82
+const IMAGE_HEIGHT = 64
 
 var IMAGE_DATA = []uint8{
 	0x04, 0x48, 0x01, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00,

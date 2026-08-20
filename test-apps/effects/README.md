@@ -3,9 +3,9 @@
 ## 2D Coordinate & Geometric Mapping
 
 - ✅ **Roto-Zoomer:** Infinite background grid texture spinning and scaling smoothly using fast affine matrix vector stepping.
+- ✅ **Screen Ripple / Wave:** Modifying a 2D pixel grid by applying simple wave propagation to approximate water ripples.
+- **Lens Filter:** Creating magnification bubbles by offsetting spatial reading coordinates
 - **Tunnel / Wormhole:** Simulating travel down a 3D cylindrical pipe by converting screen coordinates into polar distance maps.
-- **Screen Ripple / Wave:** Modifying texture sample indices with time-shifted sine lookup rows to mimic moving water surfaces.
-- **Glass Lens Filter:** Creating magnification bubbles by offsetting spatial reading coordinates inside a static spherical array mask.
 
 ## Particle & Fluid Systems
 

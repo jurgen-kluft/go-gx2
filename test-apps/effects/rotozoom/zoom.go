@@ -12,10 +12,7 @@ type Effect struct {
 	RotationAngle float32
 	RotationSpeed float32
 	PixelSize     int32
-
-	ImageData   []uint8
-	ImageWidth  int32
-	ImageHeight int32
+	Image         *ImageRgb565
 }
 
 func NewEffect(speed float32, pixelSize int32) *Effect {
@@ -23,10 +20,8 @@ func NewEffect(speed float32, pixelSize int32) *Effect {
 		RotationAngle: 0,
 		RotationSpeed: speed,
 		PixelSize:     pixelSize,
+		Image:         GetImage(),
 	}
-	f.ImageData = IMAGE_DATA[4:]
-	f.ImageWidth = IMAGE_WIDTH
-	f.ImageHeight = IMAGE_HEIGHT
 
 	return f
 }
@@ -52,31 +47,31 @@ func (e *Effect) render(fb *fx_common.FrameBuffer) {
 	centerV := cx*s + cy*c
 
 	for centerU < 0 {
-		centerU += float32(e.ImageWidth)
+		centerU += float32(e.Image.Width)
 	}
 	for centerV < 0 {
-		centerV += float32(e.ImageHeight)
+		centerV += float32(e.Image.Height)
 	}
 
-	centerU = float32(int32(centerU) % e.ImageWidth)
-	centerV = float32(int32(centerV) % e.ImageHeight)
+	centerU = float32(int32(centerU) % e.Image.Width)
+	centerV = float32(int32(centerV) % e.Image.Height)
 
 	for x := int32(0); x < fb.Width; x += e.PixelSize {
 		for y := int32(0); y < fb.Height; y += e.PixelSize {
 
 			// Get a rotated pixel from the image
-			u := (int32(centerU) + int32((float32(x)*c-float32(y)*s)*z)) % e.ImageWidth
-			v := (int32(centerV) + int32((float32(x)*s+float32(y)*c)*z)) % e.ImageHeight
+			u := (int32(centerU) + int32((float32(x)*c-float32(y)*s)*z)) % e.Image.Width
+			v := (int32(centerV) + int32((float32(x)*s+float32(y)*c)*z)) % e.Image.Height
 
 			if u < 0 {
-				u += e.ImageWidth
+				u += e.Image.Width
 			}
 			if v < 0 {
-				v += e.ImageHeight
+				v += e.Image.Height
 			}
 
-			imgByteIndex := v*e.ImageWidth*2 + (u * 2)
-			color := (uint16(e.ImageData[imgByteIndex]) << 8) | (uint16(e.ImageData[imgByteIndex+1]) << 0)
+			pixelIndex := v*e.Image.Width + u
+			color := e.Image.Data[pixelIndex]
 
 			for px := int32(0); px < e.PixelSize; px++ {
 				for py := int32(0); py < e.PixelSize; py++ {
