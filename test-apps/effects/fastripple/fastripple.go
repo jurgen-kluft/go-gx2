@@ -13,7 +13,7 @@ type FrameBuffer = fx_common.FrameBuffer
 
 const (
 	DampeningScale         = 16384 // 2.14 fixed point representation of 1.0
-	PaletteSize            = 256
+	PaletteSize            = 512
 	DefaultPaletteExponent = 0.46
 	OrthogonalWeight       = 5
 	DiagonalWeight         = 2
@@ -64,7 +64,8 @@ func generatePalette(exponent float64) [PaletteSize]uint16 {
 	stops := []paletteStop{
 		{position: -1.0, color: rgb888{8, 8, 8}},
 		{position: -0.4, color: rgb888{20, 20, 20}},
-		{position: 0.0, color: rgb888{20, 20, 110}},
+		{position: -0.001, color: rgb888{20, 20, 80}},
+		{position: 0.001, color: rgb888{20, 20, 80}},
 		{position: 0.4, color: rgb888{220, 220, 220}},
 		{position: 1.0, color: rgb888{0, 25, 255}},
 	}
@@ -112,7 +113,7 @@ func NewEffect(width, height, pixelSize int32) *RippleEffect {
 		RandState:       0xDEADBEEF, // Initialize with a fixed seed for deterministic randomness
 		Current:         make([]int16, width*height),
 		Previous:        make([]int16, width*height),
-		DampeningFactor: 16250, // Slightly less than 1.0 in 2.14 fixed point
+		DampeningFactor: 16150, // Slightly less than 1.0 in 2.14 fixed point
 		PaletteExponent: DefaultPaletteExponent,
 	}
 	effect.Palette = generatePalette(effect.PaletteExponent)
