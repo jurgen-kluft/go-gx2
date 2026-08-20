@@ -139,12 +139,100 @@ func TestNewEffectBuildsCompactByteMaps(t *testing.T) {
 	if len(fx.AngleMap) != int(fx.Width*fx.Height) {
 		t.Fatalf("angle map length = %d, want %d", len(fx.AngleMap), fx.Width*fx.Height)
 	}
+	if len(fx.FadeMap) != int(fx.Width*fx.Height) {
+		t.Fatalf("fade map length = %d, want %d", len(fx.FadeMap), fx.Width*fx.Height)
+	}
 	for index := range fx.DistMap {
 		if int32(fx.DistMap[index]) >= fx.Image.Width {
 			t.Fatalf("distance map value %d at %d exceeds texture width", fx.DistMap[index], index)
 		}
 		if int32(fx.AngleMap[index]) >= fx.Image.Height {
 			t.Fatalf("angle map value %d at %d exceeds texture height", fx.AngleMap[index], index)
+		}
+	}
+}
+
+func TestFadeMapUsesSquareRootWholeQuadrantBrightness(t *testing.T) {
+	fx := NewEffectWithSize(16, 16, 1)
+
+	if fx.FadeMap[0] != 0 {
+		t.Fatalf("center brightness = %d, want 0", fx.FadeMap[0])
+	}
+	last := len(fx.FadeMap) - 1
+	if fx.FadeMap[last] != 255 {
+		t.Fatalf("corner brightness = %d, want 255", fx.FadeMap[last])
+	}
+
+	previous := uint8(0)
+	for coordinate := int32(0); coordinate < fx.Width; coordinate++ {
+		brightness := fx.FadeMap[coordinate*fx.Width+coordinate]
+		if brightness < previous {
+			t.Fatalf("brightness decreased at diagonal coordinate %d: %d < %d", coordinate, brightness, previous)
+		}
+		previous = brightness
+	}
+
+	maxCoordinate := float64(fx.Width) - 0.5
+	maxDistance := math.Sqrt(2.0 * maxCoordinate * maxCoordinate)
+	minDistance := math.Sqrt(0.5)
+	midpoint := fadeBrightness(minDistance+(maxDistance-minDistance)/2.0, maxDistance)
+	if midpoint < 180 || midpoint > 181 {
+		t.Fatalf("half-distance brightness = %d, want approximately 180", midpoint)
+	}
+}
+
+func TestScaleRGB565(t *testing.T) {
+	const color = uint16(0xfbef)
+
+	if actual := scaleRGB565(color, 0); actual != 0 {
+		t.Fatalf("zero brightness = %04x, want 0000", actual)
+	}
+	if actual := scaleRGB565(color, 255); actual != color {
+		t.Fatalf("full brightness = %04x, want %04x", actual, color)
+	}
+
+	half := scaleRGB565(0xffff, 128)
+	red := (half >> 11) & 0x1f
+	green := (half >> 5) & 0x3f
+	blue := half & 0x1f
+	if red != 16 || green != 32 || blue != 16 {
+		t.Fatalf("half-brightness white channels = (%d,%d,%d), want (16,32,16)", red, green, blue)
+	}
+
+	if actual := scaleRGB565(0xffff, 5); actual == 0 {
+		t.Fatal("low brightness rounded all white channels to zero")
+	}
+}
+
+func TestRenderAppliesSameFadeAcrossQuadrants(t *testing.T) {
+	fx, _ := newQuadrantTestEffect(4, 4, 2, 2)
+	fx.PixelSize = 2
+	for index := range fx.Image.Data {
+		fx.Image.Data[index] = 0xffff
+	}
+	for index := range fx.FadeMap {
+		fx.FadeMap[index] = 128
+	}
+	fb := &fx_common.FrameBuffer{
+		Width:  8,
+		Height: 8,
+		Pixels: make([]uint16, 8*8),
+	}
+	value := scaleRGB565(0xffff, 128)
+
+	fx.render(fb)
+
+	for _, point := range [][2]int32{{0, 0}, {3, 0}, {0, 3}, {3, 3}} {
+		logicalX, logicalY := point[0], point[1]
+		x := logicalX * fx.PixelSize
+		y := logicalY * fx.PixelSize
+		for py := int32(0); py < fx.PixelSize; py++ {
+			for px := int32(0); px < fx.PixelSize; px++ {
+				actual := fb.Pixels[(y+py)*fb.Width+x+px]
+				if actual != value {
+					t.Fatalf("faded block for logical pixel (%d,%d) contains %04x, want %04x", logicalX, logicalY, actual, value)
+				}
+			}
 		}
 	}
 }
@@ -311,12 +399,14 @@ func newQuadrantTestEffect(width, height, centerX, centerY int32) (*WormholeEffe
 		Image:     image,
 		DistMap:   make([]uint8, width*height),
 		AngleMap:  make([]uint8, width*height),
+		FadeMap:   make([]uint8, width*height),
 		ShiftX:    float32(width - centerX),
 		ShiftY:    float32(height - centerY),
 	}
 	for index := range fx.DistMap {
 		fx.DistMap[index] = 3
 		fx.AngleMap[index] = 5
+		fx.FadeMap[index] = 255
 	}
 
 	fb := &fx_common.FrameBuffer{

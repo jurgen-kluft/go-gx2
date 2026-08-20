@@ -1,6 +1,7 @@
 package fx_wormhole
 
 import (
+	"fmt"
 	"math"
 
 	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
@@ -23,6 +24,7 @@ type WormholeEffect struct {
 	Image    *ImageRgb565
 	DistMap  []uint8 // Precomputed distance map for one quadrant
 	AngleMap []uint8 // Precomputed base angle map for one quadrant
+	FadeMap  []uint8 // Precomputed brightness map for one quadrant
 
 	RotateSpeed float32 // Unit = radians per second
 	MoveSpeed   float32 // Unit = pixels per second
@@ -53,6 +55,8 @@ func NewEffectWithSize(width, height, pixelSize int32) *WormholeEffect {
 		pixelSize = 1
 	}
 
+	fmt.Printf("Creating WormholeEffect with size %dx%d at pixel size %d\n", width, height, pixelSize)
+
 	fx := &WormholeEffect{
 		Width:     width,
 		Height:    height,
@@ -67,6 +71,7 @@ func NewEffectWithSize(width, height, pixelSize int32) *WormholeEffect {
 	// Generate the distance and angle maps for one quadrant.
 	fx.DistMap = make([]uint8, fx.Height*fx.Width)
 	fx.AngleMap = make([]uint8, fx.Height*fx.Width)
+	fx.FadeMap = make([]uint8, fx.Height*fx.Width)
 
 	// First generate the distance map, which is done by calculating the distance from the center of the
 	// screen to each pixel and mapping it to a value that can be used to sample the wormhole texture.
@@ -76,10 +81,16 @@ func NewEffectWithSize(width, height, pixelSize int32) *WormholeEffect {
 	// the wormhole texture's width.
 
 	distmap := fx.DistMap
+	fademap := fx.FadeMap
+	maxX := float64(fx.Width) - 0.5
+	maxY := float64(fx.Height) - 0.5
+	maxDistance := math.Sqrt(maxX*maxX + maxY*maxY)
 	for y := float64(0.5); y < float64(fx.Height); y++ {
 		for x := float64(0.5); x < float64(fx.Width); x++ {
 			distance := math.Sqrt(x*x + y*y)
-			distmap[int32(y)*fx.Width+int32(x)] = uint8((int32)(float64(2*fx.Image.Width*(fx.Width/2))/distance) % fx.Image.Width)
+			mapIndex := int32(y)*fx.Width + int32(x)
+			distmap[mapIndex] = uint8((int32)(float64(2*fx.Image.Width*(fx.Width/2))/distance) % fx.Image.Width)
+			fademap[mapIndex] = fadeBrightness(distance, maxDistance)
 		}
 	}
 
@@ -99,6 +110,29 @@ func NewEffectWithSize(width, height, pixelSize int32) *WormholeEffect {
 	}
 
 	return fx
+}
+
+func fadeBrightness(distance, maxDistance float64) uint8 {
+	minDistance := math.Sqrt(0.5)
+	if distance <= minDistance || maxDistance <= minDistance {
+		return 0
+	}
+	if distance >= maxDistance {
+		return 255
+	}
+
+	// 1. Linear normalization
+	normalized := (distance - minDistance) / (maxDistance - minDistance)
+
+	// 2. Apply curve (Example: Quarter Sine)
+	//curved := math.Sin(normalized * math.Pi / 2)
+	N := 3.0 // Adjust this value to control the curve's steepness
+	curved := 1.0 - math.Pow(1.0-normalized, N)
+
+	// 3. Convert to uint8
+	fadingValue := uint8(math.Round(255.0 * curved))
+
+	return fadingValue
 }
 
 func normalizeEffectSize(size, fallback int32) int32 {
@@ -186,7 +220,8 @@ func (fx *WormholeEffect) render(fb *fx_common.FrameBuffer) {
 			u := (int32(fx.DistMap[mapIndex]) + offsetU) & textureMaskU
 			v := (int32(fx.AngleMap[mapIndex]) + offsetV) & textureMaskV
 			destX := viewport.destX + (x-viewport.sourceX0)*fx.PixelSize
-			writePixelBlock(fb, destX, destY, fx.PixelSize, fx.Image.Data[v*fx.Image.Width+u])
+			color := scaleRGB565(fx.Image.Data[v*fx.Image.Width+u], fx.FadeMap[mapIndex])
+			writePixelBlock(fb, destX, destY, fx.PixelSize, color)
 		}
 	}
 
@@ -198,7 +233,8 @@ func (fx *WormholeEffect) render(fb *fx_common.FrameBuffer) {
 			u := (int32(fx.DistMap[mapIndex]) + offsetU) & textureMaskU
 			v := (offsetV - int32(fx.AngleMap[mapIndex])) & textureMaskV
 			destX := viewport.destX + (x-viewport.sourceX0)*fx.PixelSize
-			writePixelBlock(fb, destX, destY, fx.PixelSize, fx.Image.Data[v*fx.Image.Width+u])
+			color := scaleRGB565(fx.Image.Data[v*fx.Image.Width+u], fx.FadeMap[mapIndex])
+			writePixelBlock(fb, destX, destY, fx.PixelSize, color)
 		}
 	}
 
@@ -210,7 +246,8 @@ func (fx *WormholeEffect) render(fb *fx_common.FrameBuffer) {
 			u := (int32(fx.DistMap[mapIndex]) + offsetU) & textureMaskU
 			v := (offsetV - int32(fx.AngleMap[mapIndex])) & textureMaskV
 			destX := viewport.destX + (x-viewport.sourceX0)*fx.PixelSize
-			writePixelBlock(fb, destX, destY, fx.PixelSize, fx.Image.Data[v*fx.Image.Width+u])
+			color := scaleRGB565(fx.Image.Data[v*fx.Image.Width+u], fx.FadeMap[mapIndex])
+			writePixelBlock(fb, destX, destY, fx.PixelSize, color)
 		}
 	}
 
@@ -222,9 +259,17 @@ func (fx *WormholeEffect) render(fb *fx_common.FrameBuffer) {
 			u := (int32(fx.DistMap[mapIndex]) + offsetU) & textureMaskU
 			v := (int32(fx.AngleMap[mapIndex]) + offsetV) & textureMaskV
 			destX := viewport.destX + (x-viewport.sourceX0)*fx.PixelSize
-			writePixelBlock(fb, destX, destY, fx.PixelSize, fx.Image.Data[v*fx.Image.Width+u])
+			color := scaleRGB565(fx.Image.Data[v*fx.Image.Width+u], fx.FadeMap[mapIndex])
+			writePixelBlock(fb, destX, destY, fx.PixelSize, color)
 		}
 	}
+}
+
+func scaleRGB565(color uint16, brightness uint8) uint16 {
+	red := ((uint32(color>>11) & 0x1f) * (uint32(brightness) + 1)) >> 8
+	green := ((uint32(color>>5) & 0x3f) * (uint32(brightness) + 1)) >> 8
+	blue := (uint32(color&0x1f) * (uint32(brightness) + 1)) >> 8
+	return uint16(red<<11 | green<<5 | blue)
 }
 
 func writePixelBlock(fb *fx_common.FrameBuffer, x, y, pixelSize int32, color uint16) {
