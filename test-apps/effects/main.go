@@ -4,7 +4,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 	_ "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
 	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
-	fx_rotozoom "github.com/jurgen-kluft/go-gx2/test-apps/effects/rotozoom"
+	fx_fastripple "github.com/jurgen-kluft/go-gx2/test-apps/effects/fastripple"
 )
 
 func rgb565ToColor(c uint16) rl.Color {
@@ -21,8 +21,8 @@ func rgb565ToColor(c uint16) rl.Color {
 
 func main() {
 
-	screenWidth := int32(480)
-	screenHeight := int32(480)
+	screenWidth := int32(480 * 2)
+	screenHeight := int32(480 * 2)
 
 	rl.InitWindow(int32(screenWidth), int32(screenHeight), "SDF Font Rendering")
 	defer rl.CloseWindow()
@@ -41,7 +41,8 @@ func main() {
 	//effect := NewStarFieldEffect(2000) // Create a star field effect with 1000 stars
 	//effect := fx_conway.NewEffect(int32(screenWidth), int32(screenHeight)) // Create a Conway's Game of Life effect
 	//effect := fx_plasma.NewEffect() // Create a plasma effect
-	effect := fx_rotozoom.NewEffect(30.0, 2) // Create a rotozoom effect
+	//effect := fx_rotozoom.NewEffect(30.0, 2) // Create a rotozoom effect
+	effect := fx_fastripple.NewEffect(int32(screenWidth), int32(screenHeight), 1) // Create a fast ripple effect
 
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
