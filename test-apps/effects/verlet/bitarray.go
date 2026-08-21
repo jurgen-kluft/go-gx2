@@ -41,6 +41,8 @@ func (ba *BitArray) IsBitSet(index int32) bool {
 }
 
 // Iterate returns the index of the next set bit starting from the given index.
+// User needs to start with index = -1 to find the first set bit.
+// Returns false if no more set bits are found.
 func (ba *BitArray) Next(index *int32) bool {
 	i := *index
 	if i < 0 {
