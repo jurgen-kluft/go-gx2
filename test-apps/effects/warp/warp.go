@@ -97,10 +97,10 @@ func NewEffect(gridWidth, gridHeight, cellSize int32) *WarpEffect {
 		ImageWidth:     gridWidth,                   //
 		ImageHeight:    gridHeight,                  //
 		CoolMapU:       make([]int16, gw*gh),        //
-		CoolMapUSpeed:  1.5,                         // Example speed for CoolMapU
+		CoolMapUSpeed:  60,                          // Example speed for CoolMapU
 		CoolMapUOffset: 0.0,                         // Initial offset for CoolMapU
 		CoolMapV:       make([]int16, gw*gh),        //
-		CoolMapVSpeed:  1.9,                         // Example speed for CoolMapV
+		CoolMapVSpeed:  60,                          // Example speed for CoolMapV
 		CoolMapVOffset: 0.0,                         // Initial offset for CoolMapV
 	}
 
@@ -119,7 +119,7 @@ func NewEffect(gridWidth, gridHeight, cellSize int32) *WarpEffect {
 			}
 		}
 	}
-	// Make the image a checkerboard pattern for better visual effect, cellSize is the size of each square in the checkerboard
+	//	Make the image a checkerboard pattern for better visual effect, cellSize is the size of each square in the checkerboard
 	// for y := int32(0); y < gridHeight; y++ {
 	// 	for x := int32(0); x < gridWidth; x++ {
 	// 		if ((x/cellSize)+(y/cellSize))%2 == 0 {
@@ -359,7 +359,7 @@ func (w *WarpEffect) refreshGrid() {
 		return
 	}
 
-	amplitude := int32(8)
+	amplitude := int32(12)
 	fixedAmplitude := amplitude << 8
 
 	for y := int32(0); y < w.GridHeight; y++ {
@@ -373,8 +373,8 @@ func (w *WarpEffect) refreshGrid() {
 
 			// Add (u * fixedAmplitude) as 8.8 fixed point value to dU
 			// Grid values are 8.8, cool values are 2.14, so we need to shift right by 6 to convert from 2.14 to 8.8
-			dU += (u * amplitude) >> 14
-			dV += (v * amplitude) >> 14
+			dU = (u * amplitude) >> 6
+			dV = (v * amplitude) >> 6
 
 			if dU > fixedAmplitude {
 				dU = fixedAmplitude
