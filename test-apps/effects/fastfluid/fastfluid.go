@@ -7,12 +7,152 @@ import (
 	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
 )
 
+type FluidInjector interface {
+	Attach(f *FluidEffect)
+	InjectSources(f *FluidEffect, dt float32)
+}
+
+type OrbitFluidInjector struct {
+	RadiusScale       float32
+	PrimaryDensity    float32
+	SecondaryDensity  float32
+	CoreDensity       float32
+	PrimaryVelocity   float32
+	SecondaryVelocity float32
+	CoreVelocity      float32
+	Diffusion         float32
+	Viscosity         float32
+	FadeRate          float32
+}
+
+func NewOrbitFluidInjector() *OrbitFluidInjector {
+	return &OrbitFluidInjector{
+		RadiusScale:       0.22,
+		PrimaryDensity:    128.0,
+		SecondaryDensity:  60.0,
+		CoreDensity:       30.0,
+		PrimaryVelocity:   0.9,
+		SecondaryVelocity: 0.8,
+		CoreVelocity:      0.35,
+		Diffusion:         0.00001,
+		Viscosity:         0.00008,
+		FadeRate:          18.0,
+	}
+}
+
+func (i *OrbitFluidInjector) Attach(f *FluidEffect) {
+	f.diffusion = i.Diffusion
+	f.viscosity = i.Viscosity
+	f.fadeRate = i.FadeRate
+	if f.injector != i {
+		f.injector = i
+	}
+
+	f.palette = fx_common.ComputePalette(fx_common.PaletteConfigurations[1])
+	f.palette = fx_common.ShiftPalette(f.palette, 100) // Shift the palette to make the colors more visually appealing
+}
+
+func (i *OrbitFluidInjector) InjectSources(f *FluidEffect, dt float32) {
+	frameScale := clampf(dt*60.0, 0.25, 2.0)
+	center := float32(f.size-1) * 0.5
+	radius := float32(f.size) * i.RadiusScale
+	angleA := float32(math.Sin(float64(f.time * 0.85)))
+	angleB := float32(math.Cos(float64(f.time * 1.15)))
+
+	x1 := center + float32(math.Cos(float64(f.time*0.9)))*radius
+	y1 := center + float32(math.Sin(float64(f.time*1.2)))*radius
+	x2 := center + float32(math.Cos(float64(f.time*1.25+math.Pi)))*radius
+	y2 := center + float32(math.Sin(float64(f.time*0.8+math.Pi)))*radius
+
+	f.emitSplat(x1, y1, i.PrimaryDensity*frameScale, angleB*i.PrimaryVelocity, -angleA*i.PrimaryVelocity)
+	f.emitSplat(x2, y2, i.SecondaryDensity*frameScale, -angleA*i.SecondaryVelocity, angleB*i.SecondaryVelocity)
+	f.emitSplat(center, center, i.CoreDensity*frameScale, -angleB*i.CoreVelocity, angleA*i.CoreVelocity)
+}
+
+type FireFluidInjector struct {
+	WidthScale     float32
+	MinBaseWidth   int32
+	BaseDensity    float32
+	PeakDensity    float32
+	EdgeDensity    float32
+	BurstCount     int32
+	BurstDensity   float32
+	BurstThreshold uint32
+	BurstScale     float32
+	DriftStrength  float32
+	UpwardVelocity float32
+	PeakVelocity   float32
+	RandomVelocity float32
+	BurstVelocity  float32
+	SmokeDensity   float32
+	SmokeLift      float32
+	Diffusion      float32
+	Viscosity      float32
+	FadeRate       float32
+}
+
+func NewFireFluidInjector() *FireFluidInjector {
+	return &FireFluidInjector{
+		WidthScale:     0.48,
+		MinBaseWidth:   8,
+		BaseDensity:    128.0,
+		PeakDensity:    128.0,
+		EdgeDensity:    0.35,
+		BurstCount:     3,
+		BurstDensity:   90.0,
+		BurstThreshold: 220,
+		BurstScale:     1.18,
+		DriftStrength:  0.001,
+		UpwardVelocity: 0.25,
+		PeakVelocity:   0.0025,
+		RandomVelocity: 0.005,
+		BurstVelocity:  0.0,
+		SmokeDensity:   6.0,
+		SmokeLift:      0.04,
+		Diffusion:      0.000035,
+		Viscosity:      0.000005,
+		FadeRate:       32.0,
+	}
+}
+
+func (i *FireFluidInjector) Attach(f *FluidEffect) {
+	f.diffusion = i.Diffusion
+	f.viscosity = i.Viscosity
+	f.fadeRate = i.FadeRate
+	if f.injector != i {
+		f.injector = i
+	}
+	f.palette = fx_common.ComputePalette(fx_common.PaletteConfigurations[1])
+	f.palette = fx_common.ShiftPalette(f.palette, 96) // Shift the palette to make the colors more visually appealing
+
+}
+
+func (i *FireFluidInjector) InjectSources(f *FluidEffect, dt float32) {
+	baseY := f.size - 2
+	baseStart := int32(1)
+	baseEnd := f.size - 2
+
+	for x := baseStart; x <= baseEnd; x++ {
+		density := i.BaseDensity + i.PeakDensity*float32(f.pseudoRand()&31)/255.0
+
+		//localSway := float32(math.Sin(float64(f.time*1.3+float32(x)*0.37))) * (i.DriftStrength * 0.45)
+		randomSway := (float32(int32(f.pseudoRand()&31)-15) / 255.0) * i.DriftStrength
+		localLift := 0.9 + 0.1*(float32(0.95)+float32(0.05)*float32(f.pseudoRand()&31)/31.0)
+		horizontal := randomSway
+		upward := -(i.UpwardVelocity*localLift + float32(f.pseudoRand()&31)/255.0*i.RandomVelocity)
+
+		f.emitSplat(float32(x), float32(baseY), density, horizontal, upward)
+		//f.emitSplat(float32(x), float32(aboveY), density*0.45, horizontal*0.6, upward*0.65)
+	}
+}
+
 type FluidEffect struct {
 	requestedWidth  int32
 	requestedHeight int32
 	size            int32
 	mask            int32
 	shift           uint
+	randState       uint32
 	iterations      int32
 	diffusion       float32
 	viscosity       float32
@@ -20,6 +160,7 @@ type FluidEffect struct {
 	time            float32
 	showVelocity    bool
 	velocityStride  int32
+	injector        FluidInjector
 	palette         [256]uint16
 	scratch         []float32
 	density         []float32
@@ -35,21 +176,17 @@ func NewEffect(width, height int32) *FluidEffect {
 	shift := uint(bits.TrailingZeros32(uint32(size)))
 	cellCount := size * size
 
-	palette := fx_common.ComputePalette(fx_common.PaletteConfigurations[1])
-
-	return &FluidEffect{
+	effect := &FluidEffect{
 		requestedWidth:  width,
 		requestedHeight: height,
 		size:            size,
 		mask:            size - 1,
 		shift:           shift,
+		randState:       12345,
 		iterations:      16,
-		diffusion:       0.00001,
-		viscosity:       0.00008,
-		fadeRate:        18.0,
 		showVelocity:    false,
 		velocityStride:  maxInt32(2, size/16),
-		palette:         palette,
+		palette:         fx_common.ComputePalette(fx_common.PaletteConfigurations[1]),
 		scratch:         make([]float32, cellCount),
 		density:         make([]float32, cellCount),
 		vx:              make([]float32, cellCount),
@@ -57,6 +194,19 @@ func NewEffect(width, height int32) *FluidEffect {
 		vx0:             make([]float32, cellCount),
 		vy0:             make([]float32, cellCount),
 	}
+	//effect.SetOrbitInjector()
+	effect.SetFireInjector()
+	return effect
+}
+
+func (f *FluidEffect) SetOrbitInjector() {
+	f.injector = NewOrbitFluidInjector()
+	f.injector.Attach(f)
+}
+
+func (f *FluidEffect) SetFireInjector() {
+	f.injector = NewFireFluidInjector()
+	f.injector.Attach(f)
 }
 
 func (f *FluidEffect) ProcessFrame(dt float32, fb *fx_common.FrameBuffer) {
@@ -100,25 +250,15 @@ func (f *FluidEffect) addVelocity(x, y int32, amountX, amountY float32) {
 }
 
 func (f *FluidEffect) injectSources(dt float32) {
-	frameScale := clampf(dt*60.0, 0.25, 2.0)
-	center := float32(f.size-1) * 0.5
-	radius := float32(f.size) * 0.22
-	angleA := float32(math.Sin(float64(f.time * 0.85)))
-	angleB := float32(math.Cos(float64(f.time * 1.15)))
-
-	x1 := center + float32(math.Cos(float64(f.time*0.9)))*radius
-	y1 := center + float32(math.Sin(float64(f.time*1.2)))*radius
-	x2 := center + float32(math.Cos(float64(f.time*1.25+math.Pi)))*radius
-	y2 := center + float32(math.Sin(float64(f.time*0.8+math.Pi)))*radius
-
-	f.emitSplat(x1, y1, 128.0*frameScale, angleB*0.9, -angleA*0.9)
-	f.emitSplat(x2, y2, 60*frameScale, -angleA*0.8, angleB*0.8)
-	f.emitSplat(center, center, 30.0*frameScale, -angleB*0.35, angleA*0.35)
+	if f.injector == nil {
+		f.SetFireInjector()
+	}
+	f.injector.InjectSources(f, dt)
 }
 
 func (f *FluidEffect) emitSplat(x, y, densityAmount, vxAmount, vyAmount float32) {
-	baseX := int32(math.Round(float64(x))) & f.mask
-	baseY := int32(math.Round(float64(y))) & f.mask
+	baseX := int32(math.Round(float64(x)))
+	baseY := int32(math.Round(float64(y)))
 	if baseX <= 0 {
 		baseX = 1
 	} else if baseX >= f.size-1 {
@@ -140,6 +280,13 @@ func (f *FluidEffect) emitSplat(x, y, densityAmount, vxAmount, vyAmount float32)
 			f.addVelocity(baseX+ox, baseY+oy, vxAmount*falloff, vyAmount*falloff)
 		}
 	}
+}
+
+func (f *FluidEffect) pseudoRand() uint32 {
+	state := f.randState*uint32(747796405) + uint32(2891336453)
+	word := ((state >> ((state >> 28) + 4)) ^ state) * uint32(277803737)
+	f.randState += 1
+	return (word >> 22) ^ word
 }
 
 func (f *FluidEffect) step(dt float32) {
@@ -272,17 +419,12 @@ func (f *FluidEffect) renderDensity(fb *fx_common.FrameBuffer) {
 				sx = f.size - 1
 			}
 
-			// density := clampf(f.density[f.ix(sx, sy)], 0, 255)
-
-			// sample neighboring cells for smoother rendering
-			density := (f.density[f.ix(sx, sy)] +
-				f.density[f.ix(sx+1, sy)] +
-				f.density[f.ix(sx-1, sy)] +
-				f.density[f.ix(sx, sy+1)] +
-				f.density[f.ix(sx, sy-1)]) * 0.2
-
+			density := f.density[f.ix(sx, sy)]
+			//r := uint8(clampf(density, 0, 255))
 			r := uint8(density)
-			fb.Pixels[row+px] = f.palette[r]
+			g := uint8(density)
+			b := uint8(density)
+			fb.Pixels[row+px] = fx_common.ConvertToRGB565(r, g, b)
 		}
 	}
 }
@@ -348,43 +490,6 @@ func drawLine(fb *fx_common.FrameBuffer, x0, y0, x1, y1 float32, color uint16) {
 			iy0 += sy
 		}
 	}
-}
-
-func hsvToRGB(h, s, v float32) (uint8, uint8, uint8) {
-	if s <= 0 {
-		value := uint8(clampf(v*255.0, 0, 255))
-		return value, value, value
-	}
-
-	h = float32(math.Mod(float64(h), 360))
-	if h < 0 {
-		h += 360
-	}
-
-	sector := h / 60.0
-	i := int32(math.Floor(float64(sector)))
-	f := sector - float32(i)
-	p := v * (1.0 - s)
-	q := v * (1.0 - s*f)
-	t := v * (1.0 - s*(1.0-f))
-
-	var r, g, b float32
-	switch i % 6 {
-	case 0:
-		r, g, b = v, t, p
-	case 1:
-		r, g, b = q, v, p
-	case 2:
-		r, g, b = p, v, t
-	case 3:
-		r, g, b = p, q, v
-	case 4:
-		r, g, b = t, p, v
-	default:
-		r, g, b = v, p, q
-	}
-
-	return uint8(clampf(r*255.0, 0, 255)), uint8(clampf(g*255.0, 0, 255)), uint8(clampf(b*255.0, 0, 255))
 }
 
 func nearestPowerOfTwoAtMost(value int32) int32 {
