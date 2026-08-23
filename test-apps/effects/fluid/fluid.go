@@ -1,5 +1,11 @@
 package fx_fluid
 
+import (
+	"math/rand"
+
+	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
+)
+
 type boundaryAction int
 
 const (
@@ -38,7 +44,7 @@ type FluidEffect struct {
 	FadeRate         float32
 }
 
-func NewFluidEffect(cellCountX, cellCountY int32) *FluidEffect {
+func NewEffect(cellCountX, cellCountY int32) *FluidEffect {
 	// allocate additional space for boundary conditions
 	paddedCellCountX := cellCountX + 2
 	paddedCellCountY := cellCountY + 2
@@ -93,16 +99,25 @@ func (f *DensityData) reset() {
 	clear(f.Density)
 }
 
-func (f *FluidEffect) Reset() {
+func (f *FluidEffect) reset() {
 	f.CurrentVelocity.reset()
 	f.PreviousVelocity.reset()
 	f.CurrentDensity.reset()
 	f.PreviousDensity.reset()
 }
 
-func (f *FluidEffect) Simulate(dt float32) {
+func (f *FluidEffect) ProcessFrame(dt float32, fb *fx_common.FrameBuffer) {
+	// randomly add some density and velocity to the fluid simulation
+	if rand.Float32() < 0.5 {
+		x := rand.Int31n(f.CellCountX) + 1
+		y := rand.Int31n(f.CellCountY) + 1
+		f.AddDensity(x, y, 1.0)
+		f.AddVelocity(x, y, rand.Float32()*2-1, rand.Float32()*2-1)
+	}
+
 	f.simulateVelocity(dt)
 	f.simulateDensity(dt)
+	f.DrawDensityField(fb, color{r: 255, g: 255, b: 1}, false)
 }
 
 func (f *FluidEffect) AddDensity(x, y int32, val float32) {
@@ -197,7 +212,7 @@ func (f *FluidEffect) diffuse(b boundaryAction, dt float32, grid []float32, grid
 	const numNeighbors float32 = 4.0
 
 	// Gauss-Seidel Relaxation
-	for range f.RelaxationSteps {
+	for i := int32(0); i < f.RelaxationSteps; i++ {
 		ys := 1 * f.PaddedCellCountX
 		ye := ys + f.CellCountY
 		for ys < ye {
@@ -214,7 +229,10 @@ func (f *FluidEffect) diffuse(b boundaryAction, dt float32, grid []float32, grid
 				sumOfNeighborValues := right + left + bottom + top
 				diffusedValue := (self + sumOfNeighborValues*diffusionFactor) / (1 + numNeighbors*diffusionFactor)
 				grid[xs] = diffusedValue
+
+				xs++
 			}
+			ys += f.PaddedCellCountX
 		}
 		f.setBoundaries(b, grid)
 	}

@@ -1,6 +1,7 @@
 package fx_fluid
 
 import (
+	"fmt"
 	"math"
 
 	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
@@ -33,7 +34,40 @@ func (f *FluidEffect) DrawVelocityField(fb *fx_common.FrameBuffer, c color) {
 }
 
 func drawLineV(fb *fx_common.FrameBuffer, x1, y1, x2, y2 float32, c color) {
+	// Bresenham's line algorithm
+	dx := int32(math.Abs(float64(x2 - x1)))
+	dy := int32(math.Abs(float64(y2 - y1)))
+	sx := int32(1)
+	sy := int32(1)
 
+	if x1 > x2 {
+		sx = -1
+	}
+	if y1 > y2 {
+		sy = -1
+	}
+
+	err := dx - dy
+
+	for {
+		if int32(y1)*fb.Width+int32(x1) < int32(len(fb.Pixels)) {
+			fb.Pixels[int32(y1)*fb.Width+int32(x1)] = fx_common.ConvertToRGB565(c.r, c.g, c.b)
+		}
+
+		if int32(x1) == int32(x2) && int32(y1) == int32(y2) {
+			break
+		}
+
+		err2 := err * 2
+		if err2 > -dy {
+			err -= dy
+			x1 += float32(sx)
+		}
+		if err2 < dx {
+			err += dx
+			y1 += float32(sy)
+		}
+	}
 }
 
 // func drawDensityField() {
@@ -119,14 +153,39 @@ func (f *FluidEffect) DrawDensityField(fb *fx_common.FrameBuffer, c color, color
 			topRightColor := createColor(vel3, density3)
 			bottomRightColor := createColor(vel1, density1)
 
+			fmt.Printf("Drawing cell at (%d, %d) with density: %f, %f, %f, %f and velocity: %f, %f, %f, %f\n", x, y, density, density1, density2, density3, vel, vel1, vel2, vel3)
+
 			posX := int32(float32(x) * sizeX)
 			posY := int32(float32(y) * sizeY)
 
-			drawRectangleGradient(fb, posX, posY, int32(sizeX), int32(sizeY), topLeftColor, bottomLeftColor, topRightColor, bottomRightColor)
+			drawRectangleGradient(fb, posX, posY, 2, 2, topLeftColor, bottomLeftColor, topRightColor, bottomRightColor)
 		}
 		y0Idx += f.PaddedCellCountX
 	}
 }
 
 func drawRectangleGradient(fb *fx_common.FrameBuffer, rx, ry, width, height int32, topLeftColor, bottomLeftColor, topRightColor, bottomRightColor color) {
+	// first, just make a simple rectangle with the top left color
+
+	// clip the rectangle to the framebuffer bounds
+	if rx < 0 {
+		width += rx
+		rx = 0
+	}
+	if ry < 0 {
+		height += ry
+		ry = 0
+	}
+	if rx+width > int32(fb.Width) {
+		width = int32(fb.Width) - rx
+	}
+	if ry+height > int32(fb.Height) {
+		height = int32(fb.Height) - ry
+	}
+
+	for y := ry; y < ry+height; y++ {
+		for x := rx; x < rx+width; x++ {
+			fb.Pixels[y*fb.Width+x] = fx_common.ConvertToRGB565(topLeftColor.r, topLeftColor.g, topLeftColor.b)
+		}
+	}
 }

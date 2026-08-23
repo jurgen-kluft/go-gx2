@@ -6,7 +6,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 	_ "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
 	fx_common "github.com/jurgen-kluft/go-gx2/test-apps/effects/common"
-	fx_verlet "github.com/jurgen-kluft/go-gx2/test-apps/effects/verlet"
+	fx_fastfluid "github.com/jurgen-kluft/go-gx2/test-apps/effects/fastfluid"
 )
 
 func rgb565ToColor(c uint16) rl.Color {
@@ -45,7 +45,9 @@ func main() {
 	//effect := fx_rotozoom.NewEffect(30.0, 2) // Create a rotozoom effect
 	//effect := fx_fastripple.NewEffect(int32(screenWidth), int32(screenHeight), 1) // Create a fast ripple effect
 	//effect := fx_wormhole.NewEffect()
-	effect := fx_verlet.NewEffect(screenWidth, screenHeight, 16) // Create a verlet effect
+	//effect := fx_verlet.NewEffect(screenWidth, screenHeight, 16) // Create a verlet effect
+	//effect := fx_fluid.NewEffect(screenWidth, screenHeight) // Create a fluid effect
+	effect := fx_fastfluid.NewEffect(64, 64) // Create a fast fluid effect
 
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()

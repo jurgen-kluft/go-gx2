@@ -46,6 +46,15 @@ func (v Vec2f) Length() float32 {
 	return float32(math.Sqrt(float64(v.x*v.x + v.y*v.y)))
 }
 
+// 888b     d888        d8888 88888888888 888    888
+// 8888b   d8888       d88888     888     888    888
+// 88888b.d88888      d88P888     888     888    888
+// 888Y88888P888     d88P 888     888     8888888888
+// 888 Y888P 888    d88P  888     888     888    888
+// 888  Y8P  888   d88P   888     888     888    888
+// 888   "   888  d8888888888     888     888    888
+// 888       888 d88P     888     888     888    888
+
 func Abs(value int32) int32 {
 	if value < 0 {
 		return -value
@@ -53,7 +62,17 @@ func Abs(value int32) int32 {
 	return value
 }
 
-func AbsFloat32(value float32) float32 {
+func Clampf(value, min, max float32) float32 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
+}
+
+func Absf(value float32) float32 {
 	if value < 0 {
 		return -value
 	}
