@@ -7,6 +7,8 @@ import (
 )
 
 type LensEffect struct {
+	ScreenWidth   int32
+	ScreenHeight  int32
 	ImageWidth    int32
 	ImageHeight   int32
 	Image         []uint16
@@ -22,7 +24,7 @@ type Lens struct {
 	LensAnimateTime   float32
 }
 
-func NewEffect(lensSize int32) *LensEffect {
+func NewEffect(screenWidth, screenHeight, lensSize int32) *LensEffect {
 	lens1 := &Lens{
 		LensSize:          lensSize,
 		LensLUT:           make([]Offset, lensSize*lensSize),
@@ -43,15 +45,47 @@ func NewEffect(lensSize int32) *LensEffect {
 
 	image, imageWidth, imageHeight, _ := fx_common.ReadPngAsRGB565("lens/image.png")
 
+	// For now, scale the image to the screen size
+
+	image = scaleImage(image, imageWidth, imageHeight, screenWidth, screenHeight)
+	imageWidth = screenWidth
+	imageHeight = screenHeight
+
 	effect := &LensEffect{
-		Lens:          []*Lens{lens1, lens2},
-		Image:         image,
+		ScreenWidth:   screenWidth,
+		ScreenHeight:  screenHeight,
 		ImageWidth:    imageWidth,
 		ImageHeight:   imageHeight,
-		DistortionMap: make([]Offset, imageWidth*imageHeight),
+		Lens:          []*Lens{lens1, lens2},
+		Image:         image,
+		DistortionMap: make([]Offset, screenWidth*screenHeight),
 	}
 
 	return effect
+}
+
+func scaleImage(src []uint16, srcWidth, srcHeight int32, dstWidth, dstHeight int32) []uint16 {
+	dst := make([]uint16, dstWidth*dstHeight)
+
+	dX := float32(srcWidth) / float32(dstWidth)
+	dY := float32(srcHeight) / float32(dstHeight)
+
+	for y := int32(0); y < dstHeight; y++ {
+		for x := int32(0); x < dstWidth; x++ {
+			// Calculate the corresponding pixel in the source image
+			srcX := int32(float32(x) * dX)
+			srcY := int32(float32(y) * dY)
+
+			// Ensure we are within the source image bounds
+			if srcX < 0 || srcX >= srcWidth || srcY < 0 || srcY >= srcHeight {
+				continue
+			}
+
+			// Copy the pixel from the source image to the destination image
+			dst[y*dstWidth+x] = src[srcY*srcWidth+srcX]
+		}
+	}
+	return dst
 }
 
 type Offset struct {
@@ -134,7 +168,7 @@ func (e *LensEffect) applyLens(distortionMap []Offset, lens *Lens, lensX, lensY 
 			// 3. Ensure we are within framebuffer bounds
 			//    The distortion map is the same size as the framebuffer, so we need to check
 			//    bounds here.
-			if fbX < 0 || fbX >= int(e.ImageWidth) || fbY < 0 || fbY >= int(e.ImageHeight) {
+			if fbX < 0 || fbX >= int(e.ScreenWidth) || fbY < 0 || fbY >= int(e.ScreenHeight) {
 				continue
 			}
 
@@ -144,29 +178,29 @@ func (e *LensEffect) applyLens(distortionMap []Offset, lens *Lens, lensX, lensY 
 			// 7. Update the distortion map with the calculated offset, so we need to add
 			//    the offset to the distortion map since we might apply multiple lenses and
 			//    we want to accumulate the effect.
-			distortionMap[fbY*int(e.ImageWidth)+fbX].X += offset.X
-			distortionMap[fbY*int(e.ImageWidth)+fbX].Y += offset.Y
+			distortionMap[fbY*int(e.ScreenWidth)+fbX].X += offset.X
+			distortionMap[fbY*int(e.ScreenWidth)+fbX].Y += offset.Y
 		}
 	}
 }
 
 func (e *LensEffect) applyDistortionMap(fb *fx_common.FrameBuffer) {
-	for y := int32(0); y < e.ImageHeight; y++ {
-		for x := int32(0); x < e.ImageWidth; x++ {
+	for y := int32(0); y < e.ScreenHeight; y++ {
+		for x := int32(0); x < e.ScreenWidth; x++ {
 			// Get the distortion offset for this pixel
-			offset := e.DistortionMap[y*e.ImageWidth+x]
+			offset := e.DistortionMap[y*e.ScreenWidth+x]
 
 			// Calculate the source pixel coordinates
 			srcX := x + int32(offset.X)
 			srcY := y + int32(offset.Y)
 
 			// Ensure the source coordinates are within bounds
-			if srcX < 0 || srcX >= e.ImageWidth || srcY < 0 || srcY >= e.ImageHeight {
+			if srcX < 0 || srcX >= e.ScreenWidth || srcY < 0 || srcY >= e.ScreenHeight {
 				continue
 			}
 
 			// Copy the pixel from the source to the framebuffer
-			fb.Pixels[y*e.ImageWidth+x] = e.Image[srcY*e.ImageWidth+srcX]
+			fb.Pixels[y*e.ScreenWidth+x] = e.Image[srcY*e.ScreenWidth+srcX]
 		}
 	}
 }

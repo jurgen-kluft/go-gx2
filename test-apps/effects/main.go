@@ -22,8 +22,8 @@ func rgb565ToColor(c uint16) rl.Color {
 }
 
 func main() {
-	screenWidth := int32(480)
-	screenHeight := int32(480)
+	screenWidth := int32(480 * 2)
+	screenHeight := int32(480 * 2)
 
 	rl.InitWindow(int32(screenWidth), int32(screenHeight), "SDF Font Rendering")
 	defer rl.CloseWindow()
@@ -35,6 +35,11 @@ func main() {
 		Height: screenHeight,
 		Pixels: make([]uint16, screenWidth*screenHeight),
 	}
+	frameBufferBytes := make([]byte, len(frameBuffer.Pixels)*2)
+
+	// 2. Create the blank GPU texture structure once at startup
+	blankImg := rl.NewImage(frameBufferBytes, frameBuffer.Width, frameBuffer.Height, 1, rl.UncompressedR5g6b5)
+	texture := rl.LoadTextureFromImage(blankImg)
 
 	//effect := NewFireEffect(640, 480) // Create a fire effect with a width of 320 and height of 240
 	//effect := NewMetaBallEffect(12345, 10, 16, int32(screenWidth), int32(screenHeight)) // Create a metaball effect with 10 balls
@@ -49,7 +54,7 @@ func main() {
 	//effect := fx_fluid.NewEffect(screenWidth, screenHeight) // Create a fluid effect
 	//effect := fx_coolfire.NewEffect(256, 256)
 	//effect := fx_warp.NewEffect(screenWidth, screenHeight, 16) // Create a warp effect
-	effect := fx_lens.NewEffect(128)
+	effect := fx_lens.NewEffect(screenWidth, screenHeight, 128)
 
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
@@ -65,17 +70,27 @@ func main() {
 		effect.ProcessFrame(delta, frameBuffer)
 
 		// Draw framebuffer pixels to the screen
-		for y := int32(0); y < frameBuffer.Height; y++ {
-			for x := int32(0); x < frameBuffer.Width; x++ {
-				pixel := frameBuffer.Pixels[y*frameBuffer.Width+x]
-				color := rgb565ToColor(pixel)
-				rl.DrawPixel(x, y, color)
-			}
+		// for y := int32(0); y < frameBuffer.Height; y++ {
+		// 	for x := int32(0); x < frameBuffer.Width; x++ {
+		// 		pixel := frameBuffer.Pixels[y*frameBuffer.Width+x]
+		// 		color := rgb565ToColor(pixel)
+		// 		rl.DrawPixel(x, y, color)
+		// 	}
+		// }
+		for i, pixel := range frameBuffer.Pixels {
+			frameBufferBytes[i*2] = byte(pixel & 0xFF)          // Low byte
+			frameBufferBytes[i*2+1] = byte((pixel >> 8) & 0xFF) // High byte
 		}
+
+		rl.UpdateTexture(texture, frameBufferBytes)
+		rl.DrawTexture(texture, 0, 0, rl.White)
 
 		rl.DrawText(fmt.Sprintf("FPS: %d", rl.GetFPS()), 10, 40, 20, rl.White)
 
 		rl.EndDrawing()
 	}
+
+	rl.UnloadImage(blankImg) // Free CPU image struct right away; we manage the slice manually
+	defer rl.UnloadTexture(texture)
 
 }
