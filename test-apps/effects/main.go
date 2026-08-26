@@ -90,7 +90,6 @@ func main() {
 		rl.EndDrawing()
 	}
 
-	rl.UnloadImage(blankImg) // Free CPU image struct right away; we manage the slice manually
-	defer rl.UnloadTexture(texture)
+	rl.UnloadTexture(texture)
 
 }
