@@ -115,7 +115,6 @@ func ReadPack(r io.Reader) (*SpritePack, error) {
 
 	options := codestream.Options{}
 	options.Endian = binary.LittleEndian
-	options.PointerIs64Bit = false
 
 	stream := codestream.NewCodeStream(options)
 
@@ -134,10 +133,7 @@ func WritePack(w io.Writer, sprites []Sprite) error {
 		Sprites: sprites,
 	}
 
-	options := codestream.Options{}
-	options.Endian = binary.LittleEndian
-	options.PointerIs64Bit = false
-
+	options := codestream.NewOptions()
 	stream := codestream.NewCodeStream(options)
 
 	stream.WriteStream(w, &spritePack)

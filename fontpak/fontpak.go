@@ -1,7 +1,6 @@
 package fontpack
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"slices"
@@ -59,10 +58,7 @@ type BinaryFontPack struct {
 func ReadPack(r io.Reader) ([]BinaryFont, error) {
 	fontPack := &BinaryFontPack{}
 
-	options := codestream.Options{}
-	options.Endian = binary.LittleEndian
-	options.PointerIs64Bit = false
-
+	options := codestream.NewOptions()
 	stream := codestream.NewCodeStream(options)
 	stream.ReadStream(r, fontPack)
 	if stream.HasErrors() {
@@ -88,10 +84,7 @@ func WritePack(w io.Writer, fonts []Font) error {
 		Fonts: binaryFonts,
 	}
 
-	options := codestream.Options{}
-	options.Endian = binary.LittleEndian
-	options.PointerIs64Bit = false
-
+	options := codestream.NewOptions()
 	stream := codestream.NewCodeStream(options)
 	stream.WriteStream(w, fontPack)
 
