@@ -13,8 +13,8 @@ type Sprite struct {
 	Height       uint16
 	PixelFormat  common.PixelFormat
 	AlphaFormat  common.AlphaFormat
-	Reserved     uint8
 	PaletteIndex uint8
+	Reserved     uint8
 	PixelData    []byte
 	AlphaData    []byte
 }
