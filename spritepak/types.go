@@ -5,6 +5,7 @@ import (
 )
 
 type SpritePack struct {
+	Version uint32
 	Sprites []Sprite
 }
 

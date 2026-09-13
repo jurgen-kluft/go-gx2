@@ -8,6 +8,10 @@ import (
 	"github.com/jurgen-kluft/go-datastream/codestream"
 )
 
+const (
+	FontPackVersion uint32 = 0x00010000
+)
+
 type GlyphBearing struct {
 	X int8
 	Y int8
@@ -51,7 +55,8 @@ type BinaryFont struct {
 }
 
 type BinaryFontPack struct {
-	Fonts []BinaryFont
+	Version uint32
+	Fonts   []BinaryFont
 }
 
 // ReadPack reads a font pack from the provided reader and returns a slice of Font objects.
@@ -81,7 +86,8 @@ func WritePack(w io.Writer, fonts []Font) error {
 	}
 
 	fontPack := &BinaryFontPack{
-		Fonts: binaryFonts,
+		Version: FontPackVersion,
+		Fonts:   binaryFonts,
 	}
 
 	options := codestream.NewOptions()

@@ -10,6 +10,10 @@ import (
 	"github.com/jurgen-kluft/go-gx2/common"
 )
 
+const (
+	SpritePackVersion uint32 = 0x00010000
+)
+
 func Build(cfgs *SpritePackCfg) ([]Sprite, error) {
 
 	spritesArray := make([]Sprite, 0, 1024)
@@ -130,6 +134,7 @@ func ReadPack(r io.Reader) (*SpritePack, error) {
 // WritePack writes a SpritePack to a binary spritepak file.
 func WritePack(w io.Writer, sprites []Sprite) error {
 	spritePack := SpritePack{
+		Version: SpritePackVersion,
 		Sprites: sprites,
 	}
 

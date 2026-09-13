@@ -99,12 +99,17 @@ func (palPack *PalPack) MemSize() int {
 // 888       888  888 888      888       888  888 Y88b.    888 "88b      888   d88P 888 888  888 888  888 888     Y88b 888
 // 888       "Y888888 888      888       "Y888888  "Y8888P 888  888      8888888P"  888 888  888 "Y888888 888      "Y88888
 
+const (
+	PalPackVersion uint32 = 0x00010000
+)
+
 type BinaryPalette struct {
 	Type uint8
 	Data []byte
 }
 
 type BinaryPalPack struct {
+	Version  uint32
 	Palettes []BinaryPalette
 }
 
@@ -119,7 +124,7 @@ func (bpp *BinaryPalPack) Convert() (*PalPack, error) {
 }
 
 func (pp *BinaryPalPack) WritePack(w io.Writer) error {
-	// Implement
+	pp.Version = PalPackVersion
 	return nil
 }
 
